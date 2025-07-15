@@ -1,0 +1,7 @@
+version: 0.1
+projects:
+  - name: "test"
+    path: .
+    terraform_plan_file: "tfplan.binary"
+    terraform_plan_json_file: "tfplan.json"
+    usage_file: "usage.yml"

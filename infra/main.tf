@@ -13,6 +13,11 @@ resource "aws_dynamodb_table" "users" {
   }
 }
 
+
 resource "aws_s3_bucket" "avatars" {
-  bucket = "prima-tech-challenge"
+  bucket = "prima-tech-challenge-${random_id.bucket_id.hex}"
+}
+
+resource "random_id" "bucket_id" {
+  byte_length = 4
 }

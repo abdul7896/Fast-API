@@ -205,3 +205,53 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+
+# Local Terraform and Plan Files
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan.binary
+tfplan.json
+terraform.tfvars
+*.auto.tfvars
+.terraform.lock.hcl
+
+# Infracost Artifacts
+infracost-usage.yml
+infracost-output.json
+infracost-report.html
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.venv/
+venv/
+.env/
+.envrc
+
+# AWS Credentials
+*.aws_credentials
+*.pem
+
+# IDE/Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Localstack
+.localstack/
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Helm
+charts/*.tgz
+
+# CI/CD
+*.env
+*.secret
