@@ -2,6 +2,14 @@ provider "aws" {
   region = "us-east-1"
 }
 
+resource "random_id" "bucket_id" {
+  byte_length = 4
+}
+
+resource "aws_s3_bucket" "avatars" {
+  bucket = "prima-tech-challenge-${random_id.bucket_id.hex}"
+}
+
 resource "aws_dynamodb_table" "users" {
   name         = "users"
   billing_mode = "PAY_PER_REQUEST"
@@ -13,11 +21,10 @@ resource "aws_dynamodb_table" "users" {
   }
 }
 
-
-resource "aws_s3_bucket" "avatars" {
-  bucket = "prima-tech-challenge-${random_id.bucket_id.hex}"
+output "s3_bucket_name" {
+  value = aws_s3_bucket.avatars.bucket
 }
 
-resource "random_id" "bucket_id" {
-  byte_length = 4
+output "dynamodb_table_name" {
+  value = aws_dynamodb_table.users.name
 }
