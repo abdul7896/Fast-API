@@ -1,0 +1,41 @@
+name: Local Dev CI
+
+on:
+  push:
+    branches: ["**"]   # Trigger on push to any branch
+  pull_request:
+    branches: ["**"]   # Trigger on PR to any branch
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: |
+          pytest tests/
+
+      - name: Build Docker image
+        run: |
+          docker build -t prima-api:latest .
+
+      - name: Load image to local cluster
+        run: |
+          kind load docker-image prima-api:latest || true
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f k8s/
+          kubectl rollout restart deployment/prima-api
