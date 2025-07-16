@@ -46,6 +46,10 @@ jobs:
           pip install -r requirements.txt
           pip install bandit flake8 pytest moto
 
+      - name: Lint with flake8
+        run: |
+          flake8 app/ || exit 1
+
       - name: Run Bandit security scan
         run: bandit -r app/
 
