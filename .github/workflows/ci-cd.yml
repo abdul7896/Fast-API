@@ -2,16 +2,33 @@ name: Full CI/CD Pipeline
 
 on:
   push:
-    branches: ['**']
+    branches: 
+      - main
+      - feature/**
+    paths:
+      - 'src/**'
+      - 'app/**'
+      - 'tests/**'
+      - '.github/workflows/**'
   pull_request:
-    branches: ['**']
+    branches: 
+      - main
+      - feature/**
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build-test-push-deploy:
     runs-on: self-hosted
+    timeout-minutes: 30  # Prevent hanging jobs
 
     env:
       IMAGE: yourdockeruser/prima-api
+      DYNAMODB_TABLE: test-table  # For test environment
+      AWS_ACCESS_KEY_ID: ${{ secrets.TEST_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.TEST_AWS_SECRET_ACCESS_KEY }}
 
     steps:
       - name: Checkout code
@@ -21,24 +38,22 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
+          cache: 'pip'  # Enable dependency caching
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install bandit flake8
+          pip install bandit flake8 pytest moto
 
       - name: Run Bandit security scan
-        run: |
-          bandit -r app/ || exit 1
+        run: bandit -r app/
 
       - name: Run Flake8 linting
-        run: |
-          flake8 app/ || exit 1
+        run: flake8 app/
 
       - name: Run tests with pytest
-        run: |
-          pytest tests/ || exit 1
+        run: pytest tests/ -v
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -52,31 +67,27 @@ jobs:
       - name: Define Docker tag
         id: vars
         run: |
-          # Replace '/' with '-' in branch/tag name for Docker tags
           TAG=$(echo "${GITHUB_REF##*/}" | tr '/' '-')
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "Using tag: ${TAG}"
 
       - name: Build Docker image
-        run: |
-          docker build -t ${{ env.IMAGE }}:${{ steps.vars.outputs.tag }} .
+        run: docker build -t ${{ env.IMAGE }}:${{ steps.vars.outputs.tag }} .
 
       - name: Scan Docker image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.IMAGE }}:${{ steps.vars.outputs.tag }}
           format: 'table'
-          exit-code: '1'    # fail if vulnerabilities found
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
 
       - name: Push Docker image
-        run: |
-          docker push ${{ env.IMAGE }}:${{ steps.vars.outputs.tag }}
-
-      - name: Load Docker image to local kind (optional, fallback)
-        run: |
-          kind load docker-image ${{ env.IMAGE }}:${{ steps.vars.outputs.tag }} || true
+        if: github.ref == 'refs/heads/main'  # Only push from main branch
+        run: docker push ${{ env.IMAGE }}:${{ steps.vars.outputs.tag }}
 
       - name: Deploy to local Kubernetes
         run: |
-          kubectl set image deployment/prima-api prima-api=${{ env.IMAGE }}:${{ steps.vars.outputs.tag }} || true
-          kubectl rollout restart deployment/prima-api || true
+          kubectl set image deployment/prima-api prima-api=${{ env.IMAGE }}:${{ steps.vars.outputs.tag }}
+          kubectl rollout status deployment/prima-api --timeout=90s
