@@ -1,0 +1,37 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: fastapi-alerts
+  namespace: prima-challenge
+  labels:
+    release: prometheus
+spec:
+  groups:
+    - name: fastapi.rules
+      rules:
+        - alert: FastAPIDown
+          expr: up{job="prima-api"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "FastAPI App Down"
+            description: "FastAPI is not responding for more than 2 minutes."
+
+        - alert: HighMemoryUsage
+          expr: container_memory_usage_bytes{container="prima-api"} > 500000000
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High Memory Usage"
+            description: "FastAPI container is using more than 500MB of memory."
+
+        - alert: PodCrashLoopBackOff
+          expr: kube_pod_container_status_restarts_total{container="prima-api"} > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod Crash Loop Detected"
+            description: "FastAPI container has restarted more than 3 times in 5 minutes."

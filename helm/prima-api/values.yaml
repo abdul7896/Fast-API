@@ -22,3 +22,5 @@ env:
   S3_BUCKET_NAME: "prima-tech-user-avatars"
   DYNAMODB_TABLE_NAME: "users"
   
+prometheus-node-exporter:
+  enabled: false
