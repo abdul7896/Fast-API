@@ -1,5 +1,0 @@
-apiVersion: v2
-name: prima-app
-description: Prima Tech Challenge
-version: 0.1.0
-appVersion: "1.0"
