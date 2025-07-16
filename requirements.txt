@@ -26,4 +26,10 @@ websockets
 pydantic
 email-validator
 prometheus-client
+pytest
+httpx
+uvicorn
+flake8
+
+
 
