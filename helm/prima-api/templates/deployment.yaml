@@ -1,0 +1,36 @@
+# helm/prima-api/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "prima-api.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "prima-api.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "prima-api.name" . }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8000
+          env:
+            - name: AWS_REGION
+              value: {{ .Values.env.AWS_REGION | quote }}
+            - name: S3_BUCKET_NAME
+              value: {{ .Values.env.S3_BUCKET_NAME | quote }}
+            - name: DYNAMODB_TABLE_NAME
+              value: {{ .Values.env.DYNAMODB_TABLE_NAME | quote }}
+          volumeMounts:
+            - name: aws-credentials
+              mountPath: /root/.aws
+              readOnly: true
+      volumes:
+        - name: aws-credentials
+          secret:
+            secretName: aws-credentials
