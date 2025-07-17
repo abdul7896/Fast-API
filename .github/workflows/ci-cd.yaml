@@ -57,7 +57,7 @@ jobs:
         continue-on-error: true
 
       - name: Run Safety (Authenticated vulnerability scan)
-        pip install -r requirements.txt
+          pip install -r requirements.txt
         run: safety check --key=${{ secrets.SAFETY_API_KEY }}
 
   test-suite:
