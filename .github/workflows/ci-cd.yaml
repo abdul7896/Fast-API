@@ -1,11 +1,24 @@
-name: CI/CD Pipeline
+# name: CI/CD Pipeline
+
+# on:
+#   push:
+#     branches: [ main, feature/** ]
+#     # paths: [ 'app/**', 'tests/**', 'requirements.txt', 'Dockerfile' ]
+#     paths: []
+#   pull_request:
+#     branches: [ main ]
+
+name: CI
 
 on:
   push:
-    branches: [ main, feature/** ]
-    paths: [ 'app/**', 'tests/**', 'requirements.txt', 'Dockerfile' ]
+    branches:
+      - '**'  # matches all branches
   pull_request:
-    branches: [ main ]
+    branches:
+      - '**'  # also for PRs from any branch
+  workflow_dispatch:
+
 
 concurrency:
   group: ci-${{ github.ref }}
