@@ -4,9 +4,12 @@ import os
 import boto3
 import pytest
 from moto import mock_aws
+from app.main import app
+from fastapi.testclient import TestClient
 
 TABLE = os.getenv("DYNAMODB_TABLE_NAME", "users")
 S3_BUCKET = os.getenv("S3_BUCKET", "default-bucket")
+client = TestClient(app) 
 
 
 @pytest.fixture(autouse=True)

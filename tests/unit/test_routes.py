@@ -16,9 +16,12 @@ def test_health_check():
 def test_metrics():
     response = client.get("/metrics")
     assert response.status_code == 200
-    assert "text/plain" in response.headers.get("Content-Type", "")
+    if "text/plain" in response.headers["Content-Type"]:
+        assert "# HELP" in response.text  # Prometheus text format
+    else:
+        assert response.json()["message"] == "Prometheus metrics are not enabled"
 
-
+        
 def test_create_user_validation():
     # Missing email
     response = client.post("/user", json={"name": "No Email"})

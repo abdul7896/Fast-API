@@ -109,3 +109,4 @@ async def get_users():
         return get_all_users()
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to fetch users")
+
