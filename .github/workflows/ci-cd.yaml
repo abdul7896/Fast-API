@@ -56,10 +56,9 @@ jobs:
         run: mypy app/
         continue-on-error: true
 
-      - name: Run Safety (Dependency vulnerability scan)
-        run: |
-          pip install -r requirements.txt
-          safety scan
+      - name: Run Safety (Authenticated vulnerability scan)
+        pip install -r requirements.txt
+        run: safety check --key=${{ secrets.SAFETY_API_KEY }}
 
   test-suite:
     runs-on: self-hosted

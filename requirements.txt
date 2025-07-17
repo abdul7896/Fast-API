@@ -1,3 +1,4 @@
+-i https://pkgs.safetycli.com/repository/voda/project/prima-tech-challenge/pypi/simple/
 annotated-types
 anyio
 boto3
