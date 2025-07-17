@@ -1,6 +1,7 @@
 # tests/unit/test_routes.py
 
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)
@@ -30,4 +31,3 @@ def test_create_user_validation():
     # Invalid email
     response = client.post("/user", json={"email": "invalid", "name": "Test User"})
     assert response.status_code == 422
-

@@ -26,19 +26,16 @@ jobs:
         run: |
           pip install flake8 mypy bandit safety
 
-      - name: Run Flake8 (Linting)
-        run: |
-          flake8 app/ tests/
+      - name: Run Flake8
+        run: flake8 app/ tests/
 
-      - name: Run Bandit (Security)
-        run: |
-          bandit -r app/ --severity-level high
+      - name: Run Bandit
+        run: bandit -r app/ --severity-level high
 
-      - name: Run Mypy (Type Check)
-        run: |
-          mypy app/
+      - name: Run Mypy
+        run: mypy app/
 
-      - name: Run Safety (Dependency Audit)
+      - name: Run Safety
         run: |
           pip install -r requirements.txt
           safety check
@@ -61,17 +58,18 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov moto locust
 
-      - name: Run Unit & Integration Tests
-        run: |
-          PYTHONPATH=$(pwd) pytest tests/unit -v
-          PYTHONPATH=$(pwd) pytest tests/integration -v
+      - name: Run Unit Tests
+        run: PYTHONPATH=$(pwd) pytest tests/unit -v
+
+      - name: Run Integration Tests
+        run: PYTHONPATH=$(pwd) pytest tests/integration -v
 
       - name: Run Security & Validation Tests
         run: |
           PYTHONPATH=$(pwd) pytest tests/security -v
           PYTHONPATH=$(pwd) pytest tests/validation -v || true
 
-      - name: Upload Coverage Report
+      - name: Upload Coverage
         uses: actions/upload-artifact@v3
         with:
           name: coverage
@@ -90,8 +88,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Locust
-        run: |
-          pip install locust
+        run: pip install locust
 
       - name: Run Load Test
         run: |
@@ -99,12 +96,11 @@ jobs:
             -u 100 -r 10 -t 1m \
             --csv=load_test_results
 
-      - name: Upload Results
+      - name: Upload Load Test Results
         uses: actions/upload-artifact@v3
         with:
           name: load-test-results
-          path: |
-            load_test_results*.csv
+          path: load_test_results*.csv
 
   build-deploy-local-k8s:
     runs-on: self-hosted
@@ -113,7 +109,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
+      - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker Image
@@ -121,27 +117,45 @@ jobs:
           TAG=${GITHUB_SHA:0:7}
           docker build -t prima-api:$TAG .
 
+      - name: Scan Image with Trivy
+        uses: aquasecurity/trivy-action@v0.16.1
+        with:
+          image-ref: prima-api:${{ github.sha }}
+          format: table
+          exit-code: 0
+          ignore-unfixed: true
+          vuln-type: os,library
+
       - name: Tag and Save Image
         run: |
           TAG=${GITHUB_SHA:0:7}
           docker tag prima-api:$TAG localhost:5000/prima-api:$TAG
           docker save prima-api:$TAG | gzip > prima-api.tar.gz
 
-      - name: Load Image into Local Kubernetes Cluster
+      - name: Load Image into Local Cluster
         run: |
           TAG=${GITHUB_SHA:0:7}
           kind load docker-image prima-api:$TAG --name=kind-cluster-name  
           kubectl set image deployment/prima-api prima-api=prima-api:$TAG
           kubectl rollout status deployment/prima-api --timeout=90s
 
-      - name: Restart Deployment (Optional)
+      - name: Restart Deployment 
         if: ${{ github.ref != 'refs/heads/main' }}
-        run: |
-          kubectl rollout restart deployment/prima-api
+        run: kubectl rollout restart deployment/prima-api
 
-      - name: Push to Private Registry (Optional)
+      - name: Push to Docker Hub 
         if: ${{ github.ref == 'refs/heads/main' }}
         run: |
           TAG=${GITHUB_SHA:0:7}
+          echo ${{ secrets.DOCKER_HUB_PASSWORD }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
           docker tag prima-api:$TAG yourdockerhubuser/prima-api:$TAG
           docker push yourdockerhubuser/prima-api:$TAG
+      - name: Slack Notification
+          if: failure()
+          uses: rtCamp/action-slack-notify@v2
+          env:
+            SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+            SLACK_COLOR: '#FF0000'
+            SLACK_TITLE: "Pipeline Failed"
+            SLACK_MESSAGE: "Check the GitHub Actions run here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+

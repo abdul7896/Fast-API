@@ -1,6 +1,7 @@
 # tests/integration/test_dynamodb_and_s3.py
 
 import os
+
 import boto3
 import pytest
 from moto import mock_aws
@@ -30,7 +31,7 @@ def test_dynamodb_put_and_get_item():
             TableName=DYNAMODB_TABLE_NAME,
             KeySchema=[{"AttributeName": "email", "KeyType": "HASH"}],
             AttributeDefinitions=[{"AttributeName": "email", "AttributeType": "S"}],
-            BillingMode="PAY_PER_REQUEST"
+            BillingMode="PAY_PER_REQUEST",
         )
 
     # Wait for table to be ready
@@ -40,12 +41,11 @@ def test_dynamodb_put_and_get_item():
     # Now perform operations
     ddb.put_item(
         TableName=DYNAMODB_TABLE_NAME,
-        Item={"email": {"S": "user@example.com"}, "name": {"S": "Test User"}}
+        Item={"email": {"S": "user@example.com"}, "name": {"S": "Test User"}},
     )
-    
+
     result = ddb.get_item(
-        TableName=DYNAMODB_TABLE_NAME,
-        Key={"email": {"S": "user@example.com"}}
+        TableName=DYNAMODB_TABLE_NAME, Key={"email": {"S": "user@example.com"}}
     )
-    
+
     assert result["Item"]["name"]["S"] == "Test User"

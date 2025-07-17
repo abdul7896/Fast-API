@@ -1,8 +1,11 @@
 import time
+
 from fastapi.testclient import TestClient
+
 from app.main import app
 
 client = TestClient(app)
+
 
 def test_health_latency():
     start = time.time()
@@ -10,6 +13,7 @@ def test_health_latency():
     elapsed = time.time() - start
     assert response.status_code == 200
     assert elapsed < 0.5, f"Latency too high: {elapsed}s"
+
 
 def test_get_users_latency():
     start = time.time()
