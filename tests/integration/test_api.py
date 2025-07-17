@@ -70,14 +70,12 @@ def test_create_user_success(aws_mocks):
 
 
 def test_create_user_dynamodb_error(mocker, aws_mocks):
-    mock_table = mocker.patch(
-        "app.main.get_dynamodb_resource"
-    ).return_value.Table.return_value
+    mock_table = mocker.patch("app.main.get_dynamodb_resource").return_value.Table.return_value
     mock_table.put_item.side_effect = ClientError(
         {"Error": {"Code": "500", "Message": "PutItem failed"}}, "PutItem"
     )
-    response = client.post(
-        "/user", json={"email": "fail@example.com", "name": "Fail User"}
-    )
+
+    response = client.post("/user", json={"email": "fail@example.com", "name": "Fail User"})
+    
     assert response.status_code == 500
-    assert "An error occurred" in response.text
+    assert response.json()["detail"] == "DynamoDB error: Unable to put item"
