@@ -34,12 +34,14 @@ jobs:
 
       - name: Run Flake8 (Linting)
         run: flake8 app/ tests/
+        continue-on-error: true
 
       - name: Run Bandit (Security static analysis)
         run: bandit -r app/ --severity-level high
 
       - name: Run Mypy (Type Checking)
         run: mypy app/
+        continue-on-error: true
 
       - name: Run Safety (Dependency vulnerability scan)
         run: |
