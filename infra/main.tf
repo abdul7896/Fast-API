@@ -1,7 +1,7 @@
-resource "aws_DYNAMODB_TABLE" "users" {
-  name           = var.DYNAMODB_TABLE_name
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "email"
+resource "aws_dynamodb_table" "users" {
+  name         = var.dynamodb_table_name
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "email"
 
   attribute {
     name = "email"
@@ -15,7 +15,7 @@ resource "aws_DYNAMODB_TABLE" "users" {
 }
 
 resource "aws_s3_bucket" "avatars" {
-  bucket = var.S3_BUCKET
+  bucket = var.s3_bucket
 
   tags = {
     Environment = "dev"
@@ -26,8 +26,8 @@ resource "aws_s3_bucket" "avatars" {
 resource "aws_s3_bucket_public_access_block" "avatars_block" {
   bucket = aws_s3_bucket.avatars.id
 
-  block_public_acls   = true
-  block_public_policy = true
-  ignore_public_acls  = true
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
   restrict_public_buckets = true
 }

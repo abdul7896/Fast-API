@@ -36,5 +36,6 @@ moto
 pytest-mock
 requests
 starlette-exporter
-prometheus-fastapi-instrumentator==6.1.0
-
+prometheus-fastapi-instrumentator
+locust
+pytest-cov

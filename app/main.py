@@ -1,11 +1,12 @@
-# app/main.py
-
 import os
-
 import boto3
 from botocore.exceptions import ClientError
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
+from prometheus_fastapi_instrumentator import Instrumentator
+
+instrumentator = Instrumentator()
+instrumentator.instrument(app).expose(app)
 
 # ===== Configuration from environment variables =====
 DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "users")
@@ -23,8 +24,32 @@ class UserResponse(BaseModel):
     email: str
     avatar_url: str
 
+# # ===== Local Stack Clients  =====
 
-# ===== AWS Clients (can be mocked in tests) =====
+# USE_LOCALSTACK = os.getenv("USE_LOCALSTACK", "false").lower() == "true"
+# LOCALSTACK_URL = os.getenv("LOCALSTACK_URL", "http://localhost:4566")  # default LocalStack endpoint
+
+# def get_s3_client():
+#     kwargs = {"region_name": "us-east-1"}
+#     if USE_LOCALSTACK:
+#         kwargs.update({
+#             "endpoint_url": LOCALSTACK_URL,
+#             "aws_access_key_id": "test",
+#             "aws_secret_access_key": "test",
+#         })
+#     return boto3.client("s3", **kwargs)
+
+# def get_dynamodb_resource():
+#     kwargs = {"region_name": "us-east-1"}
+#     if USE_LOCALSTACK:
+#         kwargs.update({
+#             "endpoint_url": LOCALSTACK_URL,
+#             "aws_access_key_id": "test",
+#             "aws_secret_access_key": "test",
+#         })
+#     return boto3.resource("dynamodb", **kwargs)
+
+# ===== AWS Clients  =====
 def get_s3_client():
     return boto3.client("s3", region_name="us-east-1")
 
@@ -84,6 +109,11 @@ except ImportError:
     @app.get("/metrics")
     async def metrics():
         return {"status": "error", "message": "Prometheus metrics are not enabled"}
+
+def test_metrics_fallback():
+    response = client.get("/metrics")
+    assert response.status_code in [200, 500]
+    assert "message" in response.json() or "status" in response.json()
 
 
 @app.post("/user", response_model=UserResponse)

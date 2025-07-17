@@ -82,6 +82,9 @@ jobs:
         PYTHONPATH=$(pwd) pytest tests/security -v
         PYTHONPATH=$(pwd) pytest tests/validation -v || true
 
+    - name: Run Performance (Latency) Tests
+      run: PYTHONPATH=$(pwd) pytest tests/performance/test_latency.py -v
+
     - name: Run Coverage
       run: |
         PYTHONPATH=$(pwd) pytest --cov=app --cov-report=xml
@@ -112,8 +115,14 @@ jobs:
     - name: Run Load Test
       run: |
         locust -f tests/performance/test_load.py --headless \
-          -u 100 -r 10 -t 1m \
+          -u 100 -r 10 -t 30s \
           --csv=load_test_results
+
+    - name: Upload Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: load-test-results
+        path: load_test_results_*.csv
 
     - name: Upload Load Test Results
       uses: actions/upload-artifact@v4

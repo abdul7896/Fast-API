@@ -1,14 +1,14 @@
-variable "aws_region" {
-  type    = string
-  default = "us-east-1"
-}
-
-variable "DYNAMODB_TABLE_name" {
+variable "dynamodb_table_name" {
   type    = string
   default = "users"
 }
 
-variable "S3_BUCKET" {
+variable "s3_bucket" {
   type    = string
   default = "prima-tech-user-avatars"
+}
+
+variable "aws_region" {
+  type    = string
+  default = "us-east-1"
 }
