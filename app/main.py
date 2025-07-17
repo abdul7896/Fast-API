@@ -1,12 +1,11 @@
 # app/main.py
 
 import os
+
 import boto3
 from botocore.exceptions import ClientError
-
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, EmailStr
-
+from pydantic import BaseModel, EmailStr, Field
 
 # ===== Configuration from environment variables =====
 DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "users")
@@ -78,8 +77,10 @@ async def health_check():
 # Prometheus Metrics
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
+
     Instrumentator().instrument(app).expose(app)
 except ImportError:
+
     @app.get("/metrics")
     async def metrics():
         return {"status": "error", "message": "Prometheus metrics are not enabled"}

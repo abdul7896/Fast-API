@@ -1,5 +1,3 @@
-# tests/unit/test_aws_clients.py
-
 import os
 
 import boto3
