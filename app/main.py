@@ -1,117 +1,99 @@
-import os
-import uuid
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import ValidationError
-from app.schemas import UserCreate, UserResponse
-from app.aws_client import get_s3_client, get_dynamodb_resource
-from prometheus_client import Counter
+# app/main.py
+
+from fastapi import FastAPI, Depends, HTTPException, status
+import boto3
 from botocore.exceptions import ClientError
+from pydantic import BaseModel, EmailStr, Field  # Add Field for validation
+import os
 
-# Initialize FastAPI once
-app = FastAPI(title="Prima Tech Challenge API")
 
-# Metrics
-REQUEST_COUNT = Counter('request_count', 'App Request Count')
+# ===== Configuration from environment variables =====
+DYNAMODB_TABLE_NAME = os.getenv("DYNAMODB_TABLE_NAME", "users")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME", "default-bucket")
 
-# Middleware
-@app.middleware("http")
-async def count_requests(request, call_next):
-    REQUEST_COUNT.inc()
-    response = await call_next(request)
-    return response
 
-# CORS (configure properly for production)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
-    allow_methods=["GET", "POST"],
-    allow_headers=["*"],
-)
+# ===== Pydantic Models =====
+class UserCreate(BaseModel):
+    name: str = Field(..., min_length=1)
+    email: EmailStr
 
-# AWS Resources
-S3_BUCKET = os.getenv("S3_BUCKET_NAME")
-DYNAMODB_TABLE = os.getenv("DYNAMODB_TABLE_NAME")
-s3_client = get_s3_client()
-dynamodb = get_dynamodb_resource()
-table = dynamodb.Table(DYNAMODB_TABLE)
+class UserResponse(BaseModel):
+    name: str
+    email: str
+    avatar_url: str
 
-@app.get("/health")
-def health_check():
-    return {"status": "healthy"}
+# ===== AWS Clients (can be mocked in tests) =====
+def get_s3_client():
+    return boto3.client("s3", region_name="us-east-1")
 
-@app.get("/users", response_model=list[UserResponse])
-def list_users():
+def get_dynamodb_resource():
+    return boto3.resource("dynamodb", region_name="us-east-1")
+
+# ===== Core Functions =====
+def get_presigned_url(email: str):
+    s3 = get_s3_client()
+    try:
+        url = s3.generate_presigned_url(
+            "put_object",
+            Params={"Bucket": S3_BUCKET_NAME, "Key": f"avatars/{email}.jpg"},
+            ExpiresIn=3600,
+        )
+        return url
+    except ClientError as e:
+        raise Exception(f"S3 error: {e}")
+
+def save_user_to_dynamo(name: str, email: str, avatar_url: str):
+    table = get_dynamodb_resource().Table(DYNAMODB_TABLE_NAME)
+    try:
+        table.put_item(Item={"email": email, "name": name, "avatar_url": avatar_url})
+    except ClientError as e:
+        raise Exception(f"DynamoDB error: {e}")
+
+def get_all_users():
+    table = get_dynamodb_resource().Table(DYNAMODB_TABLE_NAME)
     try:
         response = table.scan()
         return response.get("Items", [])
     except ClientError as e:
-        raise HTTPException(500, f"DynamoDB error: {e.response['Error']['Message']}")
-    except Exception as e:
-        raise HTTPException(500, f"Unexpected error: {str(e)}")
+        raise Exception(f"DynamoDB scan error: {e}")
 
-@app.post("/user")
-def create_user(user: UserCreate):
+# ===== FastAPI App Setup =====
+app = FastAPI()
+
+# Health Check
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+# Prometheus Metrics 
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    Instrumentator().instrument(app).expose(app)
+except ImportError:
+    @app.get("/metrics")
+    async def metrics():
+        return {"status": "error", "message": "Prometheus metrics are not enabled"}
+
+@app.post("/user", response_model=UserResponse)
+async def create_user(user: UserCreate):
     try:
-        avatar_key = f"avatars/{uuid.uuid4()}.png"
-        presigned_post = s3_client.generate_presigned_post(
-            Bucket=S3_BUCKET,
-            Key=avatar_key,
-            Fields={"acl": "public-read", "Content-Type": "image/png"},
-            Conditions=[{"acl": "public-read"}, {"Content-Type": "image/png"}],
-            ExpiresIn=3600,
-        )
-        
-        item = {
-            "email": user.email,
-            "name": user.name,
-            "avatar_url": f"https://{S3_BUCKET}.s3.amazonaws.com/{avatar_key}",
-        }
-        
-        table.put_item(Item=item)
-        return {"presigned_post": presigned_post, "user": item}
-        
+        url = get_presigned_url(user.email)
+        save_user_to_dynamo(user.name, user.email, url)
+        return {"name": user.name, "email": user.email, "avatar_url": url}
     except ClientError as e:
-        raise HTTPException(500, f"AWS error: {e.response['Error']['Message']}")
-    except ValidationError as e:
-        raise HTTPException(422, detail=e.errors())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error saving user"
+        )
     except Exception as e:
-        raise HTTPException(500, f"Unexpected error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
-from fastapi import FastAPI, Response
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-
-# Create Prometheus metrics
-REQUEST_COUNT = Counter(
-    'app_requests_total', 'Total HTTP requests',
-    ['method', 'endpoint', 'http_status']
-)
-
-REQUEST_LATENCY = Histogram(
-    'app_request_latency_seconds', 'Request latency',
-    ['method', 'endpoint']
-)
-
-@app.middleware("http")
-async def metrics_middleware(request, call_next):
-    import time
-    start_time = time.time()
-    response = await call_next(request)
-    request_latency = time.time() - start_time
-    
-    REQUEST_COUNT.labels(
-        method=request.method,
-        endpoint=request.url.path,
-        http_status=response.status_code
-    ).inc()
-    
-    REQUEST_LATENCY.labels(
-        method=request.method,
-        endpoint=request.url.path
-    ).observe(request_latency)
-    
-    return response
-
-@app.get("/metrics")
-def metrics():
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+@app.get("/users")
+async def get_users():
+    try:
+        return get_all_users()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Failed to fetch users")

@@ -1,0 +1,147 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, feature/** ]
+    paths: [ 'app/**', 'tests/**', 'requirements.txt', 'Dockerfile' ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install linters
+        run: |
+          pip install flake8 mypy bandit safety
+
+      - name: Run Flake8 (Linting)
+        run: |
+          flake8 app/ tests/
+
+      - name: Run Bandit (Security)
+        run: |
+          bandit -r app/ --severity-level high
+
+      - name: Run Mypy (Type Check)
+        run: |
+          mypy app/
+
+      - name: Run Safety (Dependency Audit)
+        run: |
+          pip install -r requirements.txt
+          safety check
+
+  test-suite:
+    runs-on: self-hosted
+    needs: lint
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov moto locust
+
+      - name: Run Unit & Integration Tests
+        run: |
+          PYTHONPATH=$(pwd) pytest tests/unit -v
+          PYTHONPATH=$(pwd) pytest tests/integration -v
+
+      - name: Run Security & Validation Tests
+        run: |
+          PYTHONPATH=$(pwd) pytest tests/security -v
+          PYTHONPATH=$(pwd) pytest tests/validation -v || true
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage
+          path: coverage.xml
+
+  performance-tests:
+    runs-on: self-hosted
+    needs: test-suite
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+
+      - name: Install Locust
+        run: |
+          pip install locust
+
+      - name: Run Load Test
+        run: |
+          locust -f tests/performance/test_load.py --headless \
+            -u 100 -r 10 -t 1m \
+            --csv=load_test_results
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: load-test-results
+          path: |
+            load_test_results*.csv
+
+  build-deploy-local-k8s:
+    runs-on: self-hosted
+    needs: [test-suite, performance-tests]
+    environment: staging
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        run: |
+          TAG=${GITHUB_SHA:0:7}
+          docker build -t prima-api:$TAG .
+
+      - name: Tag and Save Image
+        run: |
+          TAG=${GITHUB_SHA:0:7}
+          docker tag prima-api:$TAG localhost:5000/prima-api:$TAG
+          docker save prima-api:$TAG | gzip > prima-api.tar.gz
+
+      - name: Load Image into Local Kubernetes Cluster
+        run: |
+          TAG=${GITHUB_SHA:0:7}
+          kind load docker-image prima-api:$TAG --name=kind-cluster-name  
+          kubectl set image deployment/prima-api prima-api=prima-api:$TAG
+          kubectl rollout status deployment/prima-api --timeout=90s
+
+      - name: Restart Deployment (Optional)
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: |
+          kubectl rollout restart deployment/prima-api
+
+      - name: Push to Private Registry (Optional)
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          TAG=${GITHUB_SHA:0:7}
+          docker tag prima-api:$TAG yourdockerhubuser/prima-api:$TAG
+          docker push yourdockerhubuser/prima-api:$TAG

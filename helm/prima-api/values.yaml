@@ -19,8 +19,8 @@ resources:
 
 env:
   AWS_REGION: "us-east-1"
-  S3_BUCKET_NAME: "prima-tech-user-avatars"
+  S3_BUCKET: "prima-tech-user-avatars"
   DYNAMODB_TABLE_NAME: "users"
-  
+
 prometheus-node-exporter:
   enabled: false

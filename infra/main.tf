@@ -1,5 +1,5 @@
-resource "aws_dynamodb_table" "users" {
-  name           = var.dynamodb_table_name
+resource "aws_DYNAMODB_TABLE" "users" {
+  name           = var.DYNAMODB_TABLE_name
   billing_mode   = "PAY_PER_REQUEST"
   hash_key       = "email"
 
@@ -15,7 +15,7 @@ resource "aws_dynamodb_table" "users" {
 }
 
 resource "aws_s3_bucket" "avatars" {
-  bucket = var.s3_bucket_name
+  bucket = var.S3_BUCKET
 
   tags = {
     Environment = "dev"

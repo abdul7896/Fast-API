@@ -1,0 +1,29 @@
+.................                                                        [100%]
+=============================== warnings summary ===============================
+tests/integration/test_api.py: 15 warnings
+tests/integration/test_dynamodb_and_s3.py: 11 warnings
+tests/performance/test_latency.py: 5 warnings
+tests/security/test_input_validation.py: 6 warnings
+tests/unit/test_aws_clients.py: 12 warnings
+tests/unit/test_routes.py: 6 warnings
+  /home/abz/prima-tech-challenge/venv/lib/python3.12/site-packages/botocore/auth.py:422: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    datetime_now = datetime.datetime.utcnow()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+17 passed, 55 warnings in 14.48s
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-8.4.1, pluggy-1.6.0
+rootdir: /home/abz/prima-tech-challenge
+configfile: pytest.ini
+testpaths: tests
+plugins: mock-3.14.1, anyio-4.9.0
+collected 17 items
+
+tests/integration/test_api.py ....                                       [ 23%]
+tests/integration/test_dynamodb_and_s3.py ..                             [ 35%]
+tests/performance/test_latency.py ..                                     [ 47%]
+tests/security/test_input_validation.py ...                              [ 64%]
+tests/unit/test_aws_clients.py ...                                       [ 82%]
+tests/unit/test_routes.py ...                                            [100%]
+
+============================= 17 passed in 17.27s ==============================

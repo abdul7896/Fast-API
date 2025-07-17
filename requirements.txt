@@ -30,6 +30,9 @@ pytest
 httpx
 uvicorn
 flake8
-
-
+bandit
+moto
+pytest-mock
+requests
+starlette-exporter
 
