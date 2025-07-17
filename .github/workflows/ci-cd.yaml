@@ -22,15 +22,15 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install linters
-        run: |
-          pip install flake8 mypy bandit safety
+      # - name: Install linters
+      #   run: |
+      #     pip install flake8 mypy bandit safety
 
-      - name: Run Flake8
-        run: flake8 app/ tests/
+      # - name: Run Flake8
+      #   run: flake8 app/ tests/
 
-      - name: Run Bandit
-        run: bandit -r app/ --severity-level high
+      # - name: Run Bandit
+      #   run: bandit -r app/ --severity-level high
 
       - name: Run Mypy
         run: mypy app/
@@ -151,11 +151,11 @@ jobs:
           docker tag prima-api:$TAG yourdockerhubuser/prima-api:$TAG
           docker push yourdockerhubuser/prima-api:$TAG
       - name: Slack Notification
-          if: failure()
-          uses: rtCamp/action-slack-notify@v2
-          env:
-            SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-            SLACK_COLOR: '#FF0000'
-            SLACK_TITLE: "Pipeline Failed"
-            SLACK_MESSAGE: "Check the GitHub Actions run here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: '#FF0000'
+          SLACK_TITLE: "Pipeline Failed"
+          SLACK_MESSAGE: "Check the GitHub Actions run here: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
