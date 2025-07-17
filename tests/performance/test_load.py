@@ -1,5 +1,3 @@
-# tests/performance/test_load.py
-
 from locust import HttpUser, task, between
 import random
 import string

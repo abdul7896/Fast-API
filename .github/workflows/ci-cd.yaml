@@ -3,12 +3,11 @@ name: CI
 on:
   push:
     branches:
-    - '**' # matches all branches
+      - '**'
   pull_request:
     branches:
-    - '**' # also for PRs from any branch
+      - '**'
   workflow_dispatch:
-
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -18,181 +17,216 @@ jobs:
   lint:
     runs-on: self-hosted
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-    - name: Install linters and formatters
-      run: |
-        pip install flake8 mypy bandit safety black isort
+      - name: Install linters and formatters
+        run: |
+          pip install flake8 mypy bandit safety black isort
 
-    - name: Run Black (Check formatting)
-      run: black --check app/ tests/
-      continue-on-error: true
+      - name: Run Black (Check formatting)
+        run: black --check app/ tests/
+        continue-on-error: true
 
-    - name: Run Isort (Check imports sorting)
-      run: isort --check-only app/ tests/
-      continue-on-error: true
+      - name: Run Isort (Check imports sorting)
+        run: isort --check-only app/ tests/
+        continue-on-error: true
 
-    - name: Run Flake8 (Linting)
-      run: flake8 app/ tests/
-      continue-on-error: true
+      - name: Run Flake8 (Linting)
+        run: flake8 app/ tests/
+        continue-on-error: true
 
-    - name: Run Bandit (Security static analysis)
-      run: bandit -r app/ --severity-level high
+      - name: Run Bandit (Security static analysis)
+        run: bandit -r app/ --severity-level high
 
-    - name: Run Mypy (Type Checking)
-      run: mypy app/
-      continue-on-error: true
+      - name: Run Mypy (Type Checking)
+        run: mypy app/
+        continue-on-error: true
 
-    - name: Run Safety (Authenticated vulnerability scan)
-      run: |
-        pip install -r requirements.txt
-        safety check --key ${{ secrets.SAFETY_API_KEY }}
+      - name: Run Safety (Authenticated vulnerability scan)
+        run: |
+          pip install -r requirements.txt
+          safety check --key=${{ secrets.SAFETY_API_KEY }}
+
+  iac-scanning:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Checkov
+        run: |
+          pip install checkov
+
+      - name: Run Checkov (IaC Security & Compliance)
+        run: |
+          checkov -d . --output --output-file-path iac_checkov_report
+
+      - name: Upload Checkov Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: iac-checkov
+          path: iac_checkov_report.*
+
+      - name: Install TFLint
+        run: |
+          curl -sL https://raw.githubusercontent.com/terraform-linters/tflint-ruleset-aws/master/install.sh  | bash
+
+      - name: Run TFLint (Terraform Linter)
+        run: |
+          tflint --recursive
+
+      - name: Install Terrascan
+        run: |
+          curl -L https://github.com/tenable/terrascan/releases/download/v1.18.0/terrascan_1.18.0_linux_amd64.tar.gz  | tar xz
+          sudo mv terrascan /usr/local/bin/
+
+      - name: Run Terrascan (GitLab-style IaC scanning)
+        run: |
+          terrascan scan -t terraform -i tfplan -o sarif > terrascan-report.sarif || exit 0
+
+      - name: Upload Terrascan Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: iac-terrascan
+          path: terrascan-report.sarif
 
   test-suite:
     runs-on: self-hosted
     needs: lint
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
-        cache: 'pip'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
-        pip install pytest pytest-cov moto locust
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest pytest-cov moto locust
 
-    - name: Run Unit Tests
-      run: PYTHONPATH=$(pwd) pytest tests/unit -v
+      - name: Run Unit Tests
+        run: PYTHONPATH=$(pwd) pytest tests/unit -v
 
-    - name: Run Integration Tests
-      run: PYTHONPATH=$(pwd) pytest tests/integration -v
+      - name: Run Integration Tests
+        run: PYTHONPATH=$(pwd) pytest tests/integration -v
 
-    - name: Run Security & Validation Tests
-      run: |
-        PYTHONPATH=$(pwd) pytest tests/security -v
-        PYTHONPATH=$(pwd) pytest tests/validation -v || true
+      - name: Run Security & Validation Tests
+        run: |
+          PYTHONPATH=$(pwd) pytest tests/security -v
+          PYTHONPATH=$(pwd) pytest tests/validation -v || true
 
-    - name: Run Performance (Latency) Tests
-      run: PYTHONPATH=$(pwd) pytest tests/performance/test_latency.py -v
+      - name: Run Performance (Latency) Tests
+        run: PYTHONPATH=$(pwd) pytest tests/performance/test_latency.py -v
 
-    - name: Run Coverage
-      run: |
-        PYTHONPATH=$(pwd) pytest --cov=app --cov-report=xml
-        cat coverage.xml
+      - name: Run Coverage
+        run: |
+          PYTHONPATH=$(pwd) pytest --cov=app --cov-report=xml
+          cat coverage.xml
 
-    - name: Upload Coverage
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage
-        path: coverage.xml
-        if-no-files-found: warn
+      - name: Upload Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
+          if-no-files-found: warn
 
   performance-tests:
     runs-on: self-hosted
     needs: test-suite
     timeout-minutes: 10
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-    - name: Install Locust
-      run: pip install locust
+      - name: Install Locust
+        run: pip install locust
 
-    - name: Run Load Test
-      run: |
-        locust -f tests/performance/test_load.py --headless \
-          -u 100 -r 10 -t 30s \
-          --csv=load_test_results
+      - name: Run Load Test
+        run: |
+          locust -f tests/performance/test_load.py --headless \
+            -u 100 -r 10 -t 30s \
+            --csv=load_test_results
 
-    - name: Upload Results
-      uses: actions/upload-artifact@v3
-      with:
-        name: load-test-results
-        path: load_test_results_*.csv
-
-    - name: Upload Load Test Results
-      uses: actions/upload-artifact@v4
-      with:
-        name: load-test-results
-        path: load_test_results*.csv
-        if-no-files-found: warn
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: load_test_results*.csv
+          if-no-files-found: warn
 
   build-deploy-local-k8s:
     runs-on: self-hosted
     needs: [ test-suite, performance-tests ]
     environment: staging
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Build Docker Image
-      run: |
-        TAG=${GITHUB_SHA:0:7}
-        docker build -t prima-api:$TAG .
+      - name: Build Docker Image
+        run: |
+          TAG=${GITHUB_SHA:0:7}
+          docker build -t prima-api:$TAG .
 
-    - name: Scan Image with Trivy
-      uses: aquasecurity/trivy-action@v0.16.1
-      with:
-        image-ref: prima-api:${{ github.sha }}
-        format: table
-        exit-code: 0
-        ignore-unfixed: true
-        vuln-type: os,library
+      - name: Scan Image with Trivy
+        uses: aquasecurity/trivy-action@v0.16.1
+        with:
+          image-ref: prima-api:${{ github.sha }}
+          format: table
+          exit-code: 0
+          ignore-unfixed: true
+          vuln-type: os,library
 
-    - name: Tag and Save Image
-      run: |
-        TAG=${GITHUB_SHA:0:7}
-        docker tag prima-api:$TAG localhost:5000/prima-api:$TAG
-        docker save prima-api:$TAG | gzip > prima-api.tar.gz
+      - name: Tag and Save Image
+        run: |
+          TAG=${GITHUB_SHA:0:7}
+          docker tag prima-api:$TAG localhost:5000/prima-api:$TAG
+          docker save prima-api:$TAG | gzip > prima-api.tar.gz
 
-    - name: Load Image into Local Cluster
-      run: |
-        kind load docker-archive --name=kind-cluster-name < prima-api.tar.gz
+      - name: Load Image into Local Cluster
+        run: |
+          kind load docker-archive --name=kind-cluster-name < prima-api.tar.gz
 
-    - name: Restart Deployment
-      if: ${{ github.ref != 'refs/heads/main' }}
-      run: |
-        kubectl rollout restart deployment/prima-api
+      - name: Restart Deployment
+        if: ${{ github.ref != 'refs/heads/main' }}
+        run: kubectl rollout restart deployment/prima-api
 
-    - name: Deploy to Kubernetes
-      if: ${{ github.ref == 'refs/heads/main' }}
-      run: |
-        TAG=${GITHUB_SHA:0:7}
-        kubectl set image deployment/prima-api prima-api=prima-api:$TAG
-        kubectl rollout status deployment/prima-api --timeout=90s
+      - name: Deploy to Kubernetes
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          TAG=${GITHUB_SHA:0:7}
+          kubectl set image deployment/prima-api prima-api=prima-api:$TAG
+          kubectl rollout status deployment/prima-api --timeout=90s
 
-    - name: Push to Docker Hub
-      if: ${{ github.ref == 'refs/heads/main' }}
-      run: |
-        TAG=${GITHUB_SHA:0:7}
-        echo ${{ secrets.DOCKER_HUB_PASSWORD }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
-        docker tag prima-api:$TAG yourdockerhubuser/prima-api:$TAG
-        docker push yourdockerhubuser/prima-api:$TAG
+      - name: Push to Docker Hub
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          TAG=${GITHUB_SHA:0:7}
+          echo ${{ secrets.DOCKER_HUB_PASSWORD }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
+          docker tag prima-api:$TAG yourdockerhubuser/prima-api:$TAG
+          docker push yourdockerhubuser/prima-api:$TAG
 
-    - name: Slack Notification
-      if: failure()
-      uses: slackapi/slack-github-action@v1.24.0
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-      with:
-        text: |
-          :rotating_light: Pipeline failed for ${{ github.workflow }}
-          ${{ github.repository }} @ ${{ github.ref }}
-          Job: ${{ github.job }}
-          Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      - name: Slack Notification
+        if: failure()
+        uses: slackapi/slack-github-action@v1.24.0
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
+        with:
+          text: |
+            :rotating_light: Pipeline failed for ${{ github.workflow }}
+            ${{ github.repository }} @ ${{ github.ref }}
+            Job: ${{ github.job }}
+            Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

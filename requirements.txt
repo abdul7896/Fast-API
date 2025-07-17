@@ -1,4 +1,3 @@
--i https://pkgs.safetycli.com/repository/voda/project/prima-tech-challenge/pypi/simple/
 annotated-types
 anyio
 boto3
@@ -39,3 +38,4 @@ starlette-exporter
 prometheus-fastapi-instrumentator
 locust
 pytest-cov
+pytest-timeout
