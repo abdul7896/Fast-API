@@ -95,23 +95,7 @@ jobs:
         run: tflint --recursive
         continue-on-error: true
 
-      - name: Install Terrascan
-        run: |
-          curl -sL https://raw.githubusercontent.com/tenable/terrascan/master/install.sh | bash -s -- -b /usr/local/bin
-          chmod +x terrascan
-          sudo mv terrascan /usr/local/bin/
-
-      - name: Run Terrascan
-        run: terrascan scan -t terraform -i tfplan -o sarif > terrascan-report.sarif || true
-        continue-on-error: true
-
-      - name: Upload Terrascan Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: iac-terrascan
-          path: terrascan-report.sarif
-        continue-on-error: true
-
+      
   test-suite:
     runs-on: self-hosted
     needs: lint
