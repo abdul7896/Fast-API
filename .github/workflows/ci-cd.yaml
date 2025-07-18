@@ -126,18 +126,6 @@ jobs:
       - name: Run Performance (Latency) Tests
         run: PYTHONPATH=$(pwd) pytest tests/performance/test_latency.py -v
 
-      - name: Run Coverage
-        run: |
-          PYTHONPATH=$(pwd) pytest --cov=app --cov-report=xml
-          cat coverage.xml
-
-      - name: Upload Coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage.xml
-          if-no-files-found: warn
-
   performance-tests:
     runs-on: self-hosted
     needs: test-suite

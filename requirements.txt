@@ -39,3 +39,40 @@ prometheus-fastapi-instrumentator
 locust
 pytest-cov
 pytest-timeout
+checkov
+# Core Application Dependencies
+fastapi==0.109.2
+uvicorn==0.27.1
+pydantic==2.6.4
+python-dotenv==1.0.1
+
+# AWS Services
+boto3==1.34.70
+botocore==1.34.70
+
+# Testing
+pytest==8.4.0
+pytest-cov==4.1.0
+pytest-mock==3.14.0
+pytest-timeout==2.2.0
+moto==5.0.6
+responses==0.25.0
+
+# Performance Testing
+locust
+gevent
+
+
+
+# Security Scanning
+checkov
+tflint
+terrascan
+trivy
+
+# Monitoring & Instrumentation
+prometheus-fastapi-instrumentator==6.3.0
+
+# Kubernetes Deployment
+kubernetes
+docker
