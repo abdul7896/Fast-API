@@ -1,54 +1,19 @@
-# Core Application
-fastapi==0.115.12
-uvicorn[standard]==0.34.1
-pydantic[email]==2.11.3
-
-
-
-# AWS Services
-boto3==1.35.49
-botocore==1.35.99
-
-
-
-# Testing Framework
-pytest==8.4.0
+fastapi
+uvicorn[standard]
+pydantic[email]
+boto3
+botocore
+pytest==8.0.0
 pytest-cov==4.1.0
-
-
-httpx==0.27.0
-responses==0.25.0
-
-# Mocking & Test Data
-moto==5.0.6
-requests==2.32.3
-
-# Security & Linting
+httpx
+responses
+moto
+requests
 bandit==1.7.7
 flake8==7.0.0
-safety==2.3.5
-checkov==3.2.451
-
-# Performance Testing
-locust==2.24.1
-gevent==23.9.1
-
-# Monitoring
-
-
-# Networking
-
-
-
-
-# Utilities
-
-
-
-
-
-
-
-# Containerization
-docker==7.0.0
-kubernetes==29.0.0
+safety==2.4.0
+checkov==3.4.0
+locust
+gevent
+docker
+kubernetes
