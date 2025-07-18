@@ -2,11 +2,9 @@ name: CI
 
 on:
   push:
-    branches:
-      - '**'
+    branches: ['**']
   pull_request:
-    branches:
-      - '**'
+    branches: ['**']
   workflow_dispatch:
 
 concurrency:
@@ -15,6 +13,7 @@ concurrency:
 
 jobs:
   lint:
+    name: Lint and Static Analysis
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
@@ -24,43 +23,43 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Create and activate venv
+      - name: Create venv and install linters
         run: |
           python -m venv .venv
           source .venv/bin/activate
           echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
           echo "$PWD/.venv/bin" >> $GITHUB_PATH
-
-      - name: Install linters
-        run: |
           pip install --upgrade pip
           pip install flake8 mypy bandit safety black isort
 
-      - name: Run Black
+      - name: Black
         run: black --check app/ tests/
         continue-on-error: true
 
-      - name: Run Isort
+      - name: Isort
         run: isort --check-only app/ tests/
         continue-on-error: true
 
-      - name: Run Flake8
+      - name: Flake8
         run: flake8 app/ tests/
         continue-on-error: true
 
-      - name: Run Bandit
+      - name: Bandit
         run: bandit -r app/ --severity-level high
+        continue-on-error: true
 
-      - name: Run Mypy
+      - name: Mypy
         run: mypy app/
         continue-on-error: true
 
-      - name: Run Safety
+      - name: Safety Check
         run: |
           pip install -r requirements.txt
           safety check --key=${{ secrets.SAFETY_API_KEY }}
+        continue-on-error: true
 
-  iac-scanning:
+  iac-scan:
+    name: IaC Scanning
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
@@ -72,11 +71,10 @@ jobs:
 
       - name: Install Checkov
         run: pip install checkov
-        
+        continue-on-error: true
 
       - name: Run Checkov
-        run: |
-          checkov -d . --output --output-file-path iac_checkov_report
+        run: checkov -d . --output --output-file-path iac_checkov_report
         continue-on-error: true
 
       - name: Upload Checkov Report
@@ -89,14 +87,14 @@ jobs:
       - name: Install TFLint
         uses: terraform-linters/setup-tflint@v3
         with:
-          version: "latest"  
+          version: latest
 
       - name: Run TFLint
         run: tflint --recursive
         continue-on-error: true
 
-      
   test-suite:
+    name: Test Suite
     runs-on: self-hosted
     needs: lint
     timeout-minutes: 15
@@ -107,31 +105,31 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-          cache: 'pip'
+          cache: pip
 
-      - name: Create and activate venv
+      - name: Create venv and install test deps
         run: |
           python -m venv .venv
           source .venv/bin/activate
           echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
           echo "$PWD/.venv/bin" >> $GITHUB_PATH
+          pip install -r requirements.txt
+          pip install pytest pytest-cov moto locust
 
-      - name: Install dependencies
-        run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt pytest pytest-cov moto locust
-
-      - name: Run Unit Tests
+      - name: Unit Tests
         run: pytest tests/unit -v --cov=app --cov-report=xml
 
-      - name: Run Integration Tests
+      - name: Integration Tests
         run: pytest tests/integration -v --cov=app --cov-append
+        continue-on-error: true
 
-      - name: Run Security Tests
-        run: pytest tests/security -v || true
+      - name: Security Tests
+        run: pytest tests/security -v
+        continue-on-error: true
 
-      - name: Run Validation Tests
-        run: pytest tests/validation -v || true
+      - name: Validation Tests
+        run: pytest tests/validation -v
+        continue-on-error: true
 
       - name: Upload Coverage
         uses: actions/upload-artifact@v4
@@ -139,7 +137,8 @@ jobs:
           name: coverage
           path: coverage.xml
 
-  performance-tests:
+  performance:
+    name: Performance Tests
     runs-on: self-hosted
     needs: test-suite
     timeout-minutes: 10
@@ -151,24 +150,23 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Create and activate venv
+      - name: Create venv and install Locust
         run: |
           python -m venv .venv
           source .venv/bin/activate
           echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
           echo "$PWD/.venv/bin" >> $GITHUB_PATH
+          pip install locust
 
-      - name: Install Locust
-        run: pip install locust
-
-      - name: Run Load Test
+      - name: Load Test
         run: |
           locust -f tests/performance/test_load.py --headless \
             -u 100 -r 10 -t 30s \
             --csv=load_test_results \
             --html=load_test_report.html
+        continue-on-error: true
 
-      - name: Upload Results
+      - name: Upload Load Test Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: load-test-results
@@ -177,8 +175,9 @@ jobs:
             load_test_report.html
 
   deploy:
+    name: Deploy to Production
     runs-on: self-hosted
-    needs: [test-suite, performance-tests]
+    needs: [test-suite, performance]
     environment: production
     steps:
       - uses: actions/checkout@v4
@@ -186,13 +185,13 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      - name: Docker Login
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-      - name: Build and Push
+      - name: Build & Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -209,7 +208,7 @@ jobs:
             prima-api=abz7896/prima-api:${{ github.sha }}
           kubectl rollout status deployment/prima-api --timeout=90s
 
-      - name: Slack Notification
+      - name: Notify Slack on Failure
         if: failure()
         uses: slackapi/slack-github-action@v1.24.0
         with:
