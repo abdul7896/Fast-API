@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
           echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
           echo "$PWD/.venv/bin" >> $GITHUB_PATH
           pip install --upgrade pip
-          pip install flake8 mypy bandit safety black isort
+          pip install flake8 mypy bandit black isort
 
       - name: Black
         run: black --check app/ tests/
@@ -52,12 +52,6 @@ jobs:
         run: mypy app/
         continue-on-error: true
 
-      - name: Safety Check
-        run: |
-          pip install -r requirements.txt
-          safety check --key=${{ secrets.SAFETY_API_KEY }}
-        continue-on-error: true
-
   iac-scan:
     name: IaC Scanning
     runs-on: self-hosted
@@ -71,11 +65,9 @@ jobs:
 
       - name: Install Checkov
         run: pip install checkov
-        continue-on-error: true
 
       - name: Run Checkov
         run: checkov -d . --output --output-file-path iac_checkov_report
-        continue-on-error: true
 
       - name: Upload Checkov Report
         uses: actions/upload-artifact@v4
@@ -84,14 +76,11 @@ jobs:
           path: iac_checkov_report.*
         continue-on-error: true
 
-      - name: Install TFLint
+      - name: Run TFLint
         uses: terraform-linters/setup-tflint@v3
         with:
           version: latest
-
-      - name: Run TFLint
         run: tflint --recursive
-        continue-on-error: true
 
   test-suite:
     name: Test Suite
@@ -107,6 +96,12 @@ jobs:
           python-version: '3.12'
           cache: pip
 
+      - name: Cache virtualenv
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
+
       - name: Create venv and install test deps
         run: |
           python -m venv .venv
@@ -121,15 +116,12 @@ jobs:
 
       - name: Integration Tests
         run: pytest tests/integration -v --cov=app --cov-append
-        continue-on-error: true
 
       - name: Security Tests
         run: pytest tests/security -v
-        continue-on-error: true
 
       - name: Validation Tests
         run: pytest tests/validation -v
-        continue-on-error: true
 
       - name: Upload Coverage
         uses: actions/upload-artifact@v4
@@ -164,14 +156,13 @@ jobs:
             -u 100 -r 10 -t 30s \
             --csv=load_test_results \
             --html=load_test_report.html
-        continue-on-error: true
 
       - name: Upload Load Test Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: load-test-results
           path: |
-            load_test_results*
+            load_test_results_*.csv
             load_test_report.html
 
   deploy:
