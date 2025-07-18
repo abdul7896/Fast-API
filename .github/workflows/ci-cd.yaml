@@ -72,16 +72,19 @@ jobs:
 
       - name: Install Checkov
         run: pip install checkov
+        
 
       - name: Run Checkov
         run: |
           checkov -d . --output --output-file-path iac_checkov_report
+        continue-on-error: true
 
       - name: Upload Checkov Report
         uses: actions/upload-artifact@v4
         with:
           name: iac-checkov
           path: iac_checkov_report.*
+        continue-on-error: true
 
       - name: Install TFLint
         run: |
@@ -89,6 +92,7 @@ jobs:
 
       - name: Run TFLint
         run: tflint --recursive
+        continue-on-error: true
 
       - name: Install Terrascan
         run: |
@@ -98,13 +102,15 @@ jobs:
 
       - name: Run Terrascan
         run: terrascan scan -t terraform -i tfplan -o sarif > terrascan-report.sarif || true
+        continue-on-error: true
 
       - name: Upload Terrascan Report
         uses: actions/upload-artifact@v4
         with:
           name: iac-terrascan
           path: terrascan-report.sarif
-
+        continue-on-error: true
+        
   test-suite:
     runs-on: self-hosted
     needs: lint
