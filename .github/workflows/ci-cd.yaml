@@ -1,17 +1,15 @@
+# .github/workflows/ci-cd.yaml
 name: CI
 
 on:
   push:
-    branches:
-      - '**'
+    branches: ['**']
   pull_request:
-    branches:
-      - '**'
+    branches: ['**']
   workflow_dispatch:
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+env:
+  TERRAFORM_DIR: infra  # adjust if your .tf files live elsewhere
 
 jobs:
   lint:
@@ -24,90 +22,55 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Create and activate venv
+      - name: Install linting tools
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
-          echo "$PWD/.venv/bin" >> $GITHUB_PATH
-
-      - name: Install linters
-        run: |
-          pip install --upgrade pip
           pip install flake8 mypy bandit safety black isort
-
-      - name: Run Black
-        run: black --check app/ tests/
-        continue-on-error: true
-
-      - name: Run Isort
-        run: isort --check-only app/ tests/
-        continue-on-error: true
-
-      - name: Run Flake8
-        run: flake8 app/ tests/
-        continue-on-error: true
-
-      - name: Run Bandit
-        run: bandit -r app/ --severity-level high
-
-      - name: Run Mypy
-        run: mypy app/
-        continue-on-error: true
-
-      - name: Run Safety
+      - run: black --check app/ tests/
+      - run: isort --check-only app/ tests/
+      - run: flake8 app/ tests/
+      - name: Type & security checks
         run: |
+          bandit -r app/ --severity-level high
+          mypy app/ || true
           pip install -r requirements.txt
           safety check --key=${{ secrets.SAFETY_API_KEY }}
 
   iac-scanning:
     runs-on: self-hosted
+    needs: lint
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
       - name: Install Checkov
         run: pip install checkov
-
       - name: Run Checkov
-        run: |
-          checkov -d . --output --output-file-path iac_checkov_report
-
-      - name: Upload Checkov Report
-        uses: actions/upload-artifact@v4
+        run: checkov -d "${{ env.TERRAFORM_DIR }}" --output-file-path=iac_checkov_report.json
+      - uses: actions/upload-artifact@v4
         with:
-          name: iac-checkov
-          path: iac_checkov_report.*
+          name: checkov-report
+          path: iac_checkov_report.json
 
       - name: Install TFLint
-        run: |
-          curl -sL https://raw.githubusercontent.com/terraform-linters/tflint/master/install.sh | bash
-
+        run: curl -sL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
       - name: Run TFLint
-        run: tflint --recursive
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: tflint --init && tflint --recursive --call-module-type local
 
       - name: Install Terrascan
         run: |
           curl -L https://github.com/tenable/terrascan/releases/latest/download/terrascan_$(uname)_amd64.tar.gz | tar xz
-          chmod +x terrascan
-          sudo mv terrascan /usr/local/bin/
-
+          chmod +x terrascan && sudo mv terrascan /usr/local/bin/
       - name: Run Terrascan
-        run: terrascan scan -t terraform -i tfplan -o sarif > terrascan-report.sarif || true
-
-      - name: Upload Terrascan Report
-        uses: actions/upload-artifact@v4
+        working-directory: ${{ env.TERRAFORM_DIR }}
+        run: terrascan scan -t terraform -i . -o sarif > terrascan-report.sarif || true
+      - uses: actions/upload-artifact@v4
         with:
-          name: iac-terrascan
+          name: terrascan-report
           path: terrascan-report.sarif
 
   test-suite:
     runs-on: self-hosted
-    needs: lint
+    needs: iac-scanning
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -116,36 +79,17 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
-          cache: 'pip'
-
-      - name: Create and activate venv
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
-          echo "$PWD/.venv/bin" >> $GITHUB_PATH
-
       - name: Install dependencies
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt pytest pytest-cov moto locust
+          pip install -r requirements.txt
+          pip install pytest pytest-cov moto locust
 
-      - name: Run Unit Tests
-        run: pytest tests/unit -v --cov=app --cov-report=xml
-
-      - name: Run Integration Tests
-        run: pytest tests/integration -v --cov=app --cov-append
-
-      - name: Run Security Tests
-        run: pytest tests/security -v || true
-
-      - name: Run Validation Tests
-        run: pytest tests/validation -v || true
-
-      - name: Upload Coverage
-        uses: actions/upload-artifact@v4
+      - name: Run all tests w/ coverage
+        run: |
+          pytest tests/unit tests/integration tests/security tests/validation --cov=app --cov-report=xml
+      - uses: actions/upload-artifact@v4
         with:
-          name: coverage
+          name: coverage-report
           path: coverage.xml
 
   performance-tests:
@@ -155,19 +99,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-
-      - name: Create and activate venv
-        run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
-          echo "$PWD/.venv/bin" >> $GITHUB_PATH
-
-      - name: Install Locust
+      - name: Setup Locust
         run: pip install locust
 
       - name: Run Load Test
@@ -176,11 +108,9 @@ jobs:
             -u 100 -r 10 -t 30s \
             --csv=load_test_results \
             --html=load_test_report.html
-
-      - name: Upload Results
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: load-test-results
+          name: load-test-report
           path: |
             load_test_results*
             load_test_report.html
@@ -192,16 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
-
-      - name: Build and Push
+      - name: Docker Build & Push
         uses: docker/build-push-action@v5
         with:
           context: .
