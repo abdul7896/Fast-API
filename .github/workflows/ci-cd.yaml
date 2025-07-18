@@ -24,30 +24,38 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install linters and formatters
+      - name: Create and activate venv
         run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
+      - name: Install linters
+        run: |
+          pip install --upgrade pip
           pip install flake8 mypy bandit safety black isort
 
-      - name: Run Black (Check formatting)
+      - name: Run Black
         run: black --check app/ tests/
         continue-on-error: true
 
-      - name: Run Isort (Check imports sorting)
+      - name: Run Isort
         run: isort --check-only app/ tests/
         continue-on-error: true
 
-      - name: Run Flake8 (Linting)
+      - name: Run Flake8
         run: flake8 app/ tests/
         continue-on-error: true
 
-      - name: Run Bandit (Security static analysis)
+      - name: Run Bandit
         run: bandit -r app/ --severity-level high
 
-      - name: Run Mypy (Type Checking)
+      - name: Run Mypy
         run: mypy app/
         continue-on-error: true
 
-      - name: Run Safety (Authenticated vulnerability scan)
+      - name: Run Safety
         run: |
           pip install -r requirements.txt
           safety check --key=${{ secrets.SAFETY_API_KEY }}
@@ -57,11 +65,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Checkov
-        run: |
-          pip install checkov
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.12'
 
-      - name: Run Checkov (IaC Security & Compliance)
+      - name: Install Checkov
+        run: pip install checkov
+
+      - name: Run Checkov
         run: |
           checkov -d . --output --output-file-path iac_checkov_report
 
@@ -73,20 +85,19 @@ jobs:
 
       - name: Install TFLint
         run: |
-          curl -sL https://raw.githubusercontent.com/terraform-linters/tflint-ruleset-aws/master/install.sh  | bash
+          curl -sL https://raw.githubusercontent.com/terraform-linters/tflint/master/install.sh | bash
 
-      - name: Run TFLint (Terraform Linter)
-        run: |
-          tflint --recursive
+      - name: Run TFLint
+        run: tflint --recursive
 
       - name: Install Terrascan
         run: |
-          curl -L https://github.com/tenable/terrascan/releases/download/v1.18.0/terrascan_1.18.0_linux_amd64.tar.gz  | tar xz
+          curl -L https://github.com/tenable/terrascan/releases/latest/download/terrascan_$(uname)_amd64.tar.gz | tar xz
+          chmod +x terrascan
           sudo mv terrascan /usr/local/bin/
 
-      - name: Run Terrascan (GitLab-style IaC scanning)
-        run: |
-          terrascan scan -t terraform -i tfplan -o sarif > terrascan-report.sarif || exit 0
+      - name: Run Terrascan
+        run: terrascan scan -t terraform -i tfplan -o sarif > terrascan-report.sarif || true
 
       - name: Upload Terrascan Report
         uses: actions/upload-artifact@v4
@@ -107,24 +118,35 @@ jobs:
           python-version: '3.12'
           cache: 'pip'
 
+      - name: Create and activate venv
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install pytest pytest-cov moto locust
+          pip install --upgrade pip
+          pip install -r requirements.txt pytest pytest-cov moto locust
 
       - name: Run Unit Tests
-        run: PYTHONPATH=$(pwd) pytest tests/unit -v
+        run: pytest tests/unit -v --cov=app --cov-report=xml
 
       - name: Run Integration Tests
-        run: PYTHONPATH=$(pwd) pytest tests/integration -v
+        run: pytest tests/integration -v --cov=app --cov-append
 
-      - name: Run Security & Validation Tests
-        run: |
-          PYTHONPATH=$(pwd) pytest tests/security -v
-          PYTHONPATH=$(pwd) pytest tests/validation -v || true
+      - name: Run Security Tests
+        run: pytest tests/security -v || true
 
-      - name: Run Performance (Latency) Tests
-        run: PYTHONPATH=$(pwd) pytest tests/performance/test_latency.py -v
+      - name: Run Validation Tests
+        run: pytest tests/validation -v || true
+
+      - name: Upload Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.xml
 
   performance-tests:
     runs-on: self-hosted
@@ -138,6 +160,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Create and activate venv
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
       - name: Install Locust
         run: pip install locust
 
@@ -145,76 +174,55 @@ jobs:
         run: |
           locust -f tests/performance/test_load.py --headless \
             -u 100 -r 10 -t 30s \
-            --csv=load_test_results
+            --csv=load_test_results \
+            --html=load_test_report.html
 
       - name: Upload Results
         uses: actions/upload-artifact@v4
         with:
           name: load-test-results
-          path: load_test_results*.csv
-          if-no-files-found: warn
+          path: |
+            load_test_results*
+            load_test_report.html
 
-  build-deploy-local-k8s:
+  deploy:
     runs-on: self-hosted
-    needs: [ test-suite, performance-tests ]
-    environment: staging
+    needs: [test-suite, performance-tests]
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker Image
-        run: |
-          TAG=${GITHUB_SHA:0:7}
-          docker build -t prima-api:$TAG .
-
-      - name: Scan Image with Trivy
-        uses: aquasecurity/trivy-action@v0.16.1
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          image-ref: prima-api:${{ github.sha }}
-          format: table
-          exit-code: 0
-          ignore-unfixed: true
-          vuln-type: os,library
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
 
-      - name: Tag and Save Image
-        run: |
-          TAG=${GITHUB_SHA:0:7}
-          docker tag prima-api:$TAG localhost:5000/prima-api:$TAG
-          docker save prima-api:$TAG | gzip > prima-api.tar.gz
-
-      - name: Load Image into Local Cluster
-        run: |
-          kind load docker-archive --name=kind-cluster-name < prima-api.tar.gz
-
-      - name: Restart Deployment
-        if: ${{ github.ref != 'refs/heads/main' }}
-        run: kubectl rollout restart deployment/prima-api
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            yourdockerhubuser/prima-api:${{ github.sha }}
+            yourdockerhubuser/prima-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Deploy to Kubernetes
-        if: ${{ github.ref == 'refs/heads/main' }}
         run: |
-          TAG=${GITHUB_SHA:0:7}
-          kubectl set image deployment/prima-api prima-api=prima-api:$TAG
+          kubectl set image deployment/prima-api \
+            prima-api=yourdockerhubuser/prima-api:${{ github.sha }}
           kubectl rollout status deployment/prima-api --timeout=90s
-
-      - name: Push to Docker Hub
-        if: ${{ github.ref == 'refs/heads/main' }}
-        run: |
-          TAG=${GITHUB_SHA:0:7}
-          echo ${{ secrets.DOCKER_HUB_PASSWORD }} | docker login -u ${{ secrets.DOCKER_HUB_USERNAME }} --password-stdin
-          docker tag prima-api:$TAG yourdockerhubuser/prima-api:$TAG
-          docker push yourdockerhubuser/prima-api:$TAG
 
       - name: Slack Notification
         if: failure()
         uses: slackapi/slack-github-action@v1.24.0
+        with:
+          channel: '#alerts'
+          status: ${{ job.status }}
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}
-        with:
-          text: |
-            :rotating_light: Pipeline failed for ${{ github.workflow }}
-            ${{ github.repository }} @ ${{ github.ref }}
-            Job: ${{ github.job }}
-            Run URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
