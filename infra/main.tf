@@ -1,3 +1,14 @@
+# terraform {
+#   required_version = "~> 1.6.0"
+
+#   required_providers {
+#     aws = {
+#       source  = "hashicorp/aws"
+#       version = "~> 5.0"
+#     }
+#   }
+# }
+
 resource "aws_dynamodb_table" "users" {
   name         = var.dynamodb_table_name
   billing_mode = "PAY_PER_REQUEST"
