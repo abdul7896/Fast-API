@@ -90,13 +90,18 @@ jobs:
         run: |
           curl -sL https://raw.githubusercontent.com/terraform-linters/tflint/master/install.sh | bash
 
+      - name: Install TFLint
+        uses: terraform-linters/setup-tflint@v3
+        with:
+          version: "latest"  
+
       - name: Run TFLint
         run: tflint --recursive
         continue-on-error: true
 
       - name: Install Terrascan
         run: |
-          curl -L https://github.com/tenable/terrascan/releases/latest/download/terrascan_$(uname)_amd64.tar.gz | tar xz
+          curl -sL https://raw.githubusercontent.com/tenable/terrascan/master/install.sh | bash -s -- -b /usr/local/bin
           chmod +x terrascan
           sudo mv terrascan /usr/local/bin/
 
