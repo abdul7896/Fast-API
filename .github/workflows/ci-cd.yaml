@@ -110,7 +110,7 @@ jobs:
           name: iac-terrascan
           path: terrascan-report.sarif
         continue-on-error: true
-        
+
   test-suite:
     runs-on: self-hosted
     needs: lint
@@ -213,15 +213,15 @@ jobs:
           context: .
           push: true
           tags: |
-            yourdockerhubuser/prima-api:${{ github.sha }}
-            yourdockerhubuser/prima-api:latest
+            abz7896/prima-api:${{ github.sha }}
+            abz7896/prima-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Deploy to Kubernetes
         run: |
           kubectl set image deployment/prima-api \
-            prima-api=yourdockerhubuser/prima-api:${{ github.sha }}
+            prima-api=abz7896/prima-api:${{ github.sha }}
           kubectl rollout status deployment/prima-api --timeout=90s
 
       - name: Slack Notification
