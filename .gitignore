@@ -83,3 +83,43 @@ yarn-error.log*
 .coverage
 coverage.xml
 htmlcov/
+
+# Local terraform binaries and plugins
+.terraform/
+.terraform.lock.hcl
+
+# Terraform state files
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate
+*.tfstate.*
+
+# Workspace directory (if using terraform workspaces)
+env:/ 
+env
+ENV
+
+# Ignore variable files containing secrets
+*.auto.tfvars
+*.tfvars
+*.tfvars.json
+
+# Ignore output files
+*.out
+*.log
+*.backup
+
+# Ignore IDE-specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore dependency lock files (if not using Terraform 0.14+)
+.lock.hcl
+
+# Ignore documentation and temporary files
+docs/
+tmp/
+temp/
+*.md.tmp

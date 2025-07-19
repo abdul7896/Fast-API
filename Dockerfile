@@ -1,13 +1,17 @@
 FROM python:3.9-slim
 
+# Set working directory
 WORKDIR /app
 
-# Install dependencies (including python-dotenv for .env support)
+# Install dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy app code (including .env for local dev, but ensure it's .dockerignore'd in prod)
-COPY . .
+# Only copy the app folder (not the whole project)
+COPY app ./app
 
-# Run the API (use .env if present, else rely on runtime env vars)
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
+# Set Python path
+ENV PYTHONPATH=/app
+
+# Run the app
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
