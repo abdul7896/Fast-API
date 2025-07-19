@@ -1,0 +1,6 @@
+fastapi==0.95.2
+uvicorn==0.22.0
+boto3==1.26.158
+python-multipart==0.0.6
+pytest==7.4.0
+dotenv
