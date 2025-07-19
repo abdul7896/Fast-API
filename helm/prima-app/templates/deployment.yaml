@@ -21,6 +21,8 @@ spec:
         envFrom:
         - configMapRef:
             name: prima-app-config
+        - secretRef:
+            name: aws-creds
         resources:
           {{- toYaml .Values.resources | nindent 12 }}
         livenessProbe:

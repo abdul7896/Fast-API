@@ -1,0 +1,77 @@
+name: Deploy Prima App
+
+on:
+  push:
+    branches: [ "feature/python-api-server-final" ]
+  pull_request:
+    branches: [ "feature/python-api-server-final" ]
+
+env:
+  AWS_REGION: us-east-1
+  DOCKER_IMAGE: prima-api
+  HELM_CHART: ./helm/prima-app
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run tests
+        run: |
+          pytest -v
+
+  build-docker:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+      
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          push: true
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-staging:
+    needs: build-docker
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Deploy to Kubernetes
+        run: |
+          helm upgrade --install prima-app ${{ env.HELM_CHART }} \
+            --set image.repository=${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_IMAGE }} \
+            --set image.tag=latest \
+            --set env.S3_BUCKET="prima-avatars-staging" \
+            --set env.DYNAMODB_TABLE="users-staging"
