@@ -36,6 +36,14 @@ build/
 .DS_Store
 Thumbs.db
 
+# Python environments
+.venv/
+venv/
+env/
+virtualenv/
+__pycache__
+*.pyc
+
 # Local development files
 .env
 .env.local
