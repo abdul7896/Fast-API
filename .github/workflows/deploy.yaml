@@ -1,49 +1,58 @@
-name: Deploy Prima App
+name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "feature/python-api-server-final" ]
+    branches: [main, feature/python-api-server-final]
   pull_request:
-    branches: [ "feature/python-api-server-final" ]
+    branches: [main, feature/python-api-server-final]
 
 env:
   AWS_REGION: us-east-1
   DOCKER_IMAGE: prima-api
   HELM_CHART: ./helm/prima-app
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
-      
+          python-version: '3.9'
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      
-      - name: Run tests
-        run: |
-          pytest -v
+          pip install -r requirements.txt pytest moto bandit locust
+
+    #   - name: Run Unit Tests
+    #     run: pytest tests/test_units.py -v
+
+    #   - name: Run Integration Tests
+    #     run: pytest tests/test_integration.py -v
+
+    #   - name: Security Scan
+    #     run: bandit -r app/
+
+    #   - name: Performance Test
+    #     run: locust -f tests/test_performance.py --headless -u 100 -r 10 --run-time 1m
 
   build-docker:
     needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-      
-      - name: Build and push
+
+      - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           push: true
@@ -57,21 +66,59 @@ jobs:
     environment: staging
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Helm
         uses: azure/setup-helm@v3
-      
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
-      
-      - name: Deploy to Kubernetes
+
+      - name: Deploy to Kubernetes with Helm
         run: |
           helm upgrade --install prima-app ${{ env.HELM_CHART }} \
             --set image.repository=${{ secrets.DOCKER_HUB_USERNAME }}/${{ env.DOCKER_IMAGE }} \
             --set image.tag=latest \
             --set env.S3_BUCKET="prima-avatars-staging" \
             --set env.DYNAMODB_TABLE="users-staging"
+
+  notify:
+    needs: [test, build-docker, deploy-staging]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify Slack
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "CI/CD pipeline completed with status: ${{ job.status }} for ${{ github.repository }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*${{ github.repository }}* CI/CD pipeline status: *${{ job.status }}*"
+                  }
+                },
+                {
+                  "type": "divider"
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch*\n${{ github.ref }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit*\n${{ github.sha }}"
+                    }
+                  ]
+                }
+              ]
+            }
