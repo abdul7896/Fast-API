@@ -36,7 +36,7 @@ jobs:
           push: true
           tags: abz7896/prima-api:${{ env.BUILD_TAG }}
 
-  wait-for-approval-release:
+  deploy-release:
     name: Manual Approval for Release
     runs-on: ubuntu-latest
     needs: build
@@ -47,12 +47,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Manual Approval for Release
-        uses: peaceiris/actions-gh-oidc@v1
-        with:
-          enable: true
-
-      - name: Merge into Release
+      - name: Merge into release
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
@@ -60,11 +55,11 @@ jobs:
           git merge feature/python-api-server-final --no-edit
           git push origin release
 
-  wait-for-approval-main:
+  deploy-main:
     name: Manual Approval for Main
     runs-on: ubuntu-latest
-    needs: wait-for-approval-release
-    if: ${{ needs.wait-for-approval-release.result == 'success' }}
+    needs: deploy-release
+    if: ${{ needs.deploy-release.result == 'success' }}
     environment: main
     permissions:
       contents: write
@@ -72,12 +67,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Manual Approval for Main
-        uses: peaceiris/actions-gh-oidc@v1
-        with:
-          enable: true
-
-      - name: Merge into Main
+      - name: Merge into main
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
