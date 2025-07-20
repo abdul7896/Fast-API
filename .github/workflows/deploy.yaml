@@ -1,3 +1,4 @@
+# .github/workflows/deploy.yaml
 name: Prima API CI/CD
 
 on:
@@ -7,171 +8,79 @@ on:
 
 jobs:
   build:
-    name: 🧱 Build Docker Image
+    name: Build Docker Image
     runs-on: ubuntu-latest
+    outputs:
+      build_tag: ${{ steps.set_tag.outputs.build_tag }}
     steps:
-      - name: 📦 Checkout code
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: 📅 Set build tag
+      - name: Set build tag
         id: set_tag
         run: |
           BUILD_TAG=dev-$(date +'%Y%m%d')-$(git rev-parse --short HEAD)
           echo "BUILD_TAG=$BUILD_TAG" >> $GITHUB_ENV
+          echo "::set-output name=build_tag::${BUILD_TAG}"
 
-      - name: 🔐 Login to Docker Hub
+      - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: 🐳 Build and Push Docker Image
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: abz7896/prima-api:${{ env.BUILD_TAG }}
-          build-args: |
-            BUILD_DATE=$(date -u +'%Y-%m-%d %H:%M:%SZ')
-
-  deploy-dev:
-    name: 🚀 Deploy to Dev
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: 📦 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🧰 Setup Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: v3.12.0
-
-      - name: 🚀 Deploy to Kubernetes Dev
-        run: |
-          helm upgrade --install prima-api helm/ \
-            --set image.repository=abz7896/prima-api \
-            --set image.tag=${{ env.BUILD_TAG }} \
-            --set secret.AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            --set secret.AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-            --set secret.API_KEY=${{ secrets.API_KEY }} \
-            --set config.AWS_REGION=${{ secrets.AWS_REGION }} \
-            --set config.S3_BUCKET=${{ secrets.S3_BUCKET }} \
-            --set config.DYNAMODB_TABLE=${{ secrets.DYNAMODB_TABLE }}
 
   wait-for-approval-release:
-    name: ✅ Wait for Approval to Release
+    name: Manual Approval for Release
     runs-on: ubuntu-latest
-    needs: deploy-dev
+    needs: build
     environment: release
     permissions:
       contents: write
     steps:
-      - name: 🧾 Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: ✅ Manual Approval for Release
-        uses: actions/github-script@v6
+      - name: Manual Approval for Release
+        uses: peaceiris/actions-gh-oidc@v1
         with:
-          script: |
-            core.info("✅ Waiting for approval to merge into release")
-            const { context } = require('@actions/github')
-            const { exec } = require('@actions/exec')
+          enable: true
 
-            // Wait for manual input
-            await github.rest.actions.createWorkflowDispatchEventRequest({
-              repo: context.repo.repo,
-              owner: context.repo.owner,
-              workflow_id: "deploy.yaml",
-              ref: "release"
-            })
+      - name: Merge into Release
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git checkout release
+          git merge feature/python-api-server-final --no-edit
+          git push origin release
 
-            core.info("✅ Merging into release")
-            await exec.exec(`git config --global user.email "action@github.com"`)
-            await exec.exec(`git config --global user.name "GitHub Action"`)
-            await exec.exec(`git checkout release`)
-            await exec.exec(`git merge feature/python-api-server-final --no-edit`)
-            await exec.exec(`git push origin release`)
-
-  deploy-release:
-    name: 🚀 Deploy to Release
+  wait-for-approval-main:
+    name: Manual Approval for Main
     runs-on: ubuntu-latest
     needs: wait-for-approval-release
     if: ${{ needs.wait-for-approval-release.result == 'success' }}
-    steps:
-      - name: 📦 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🧰 Setup Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: v3.12.0
-
-      - name: 🚀 Deploy to Kubernetes (Release)
-        run: |
-          helm upgrade --install prima-api helm/ \
-            --set image.repository=abz7896/prima-api \
-            --set image.tag=${{ needs.build.outputs.build_tag }} \
-            --set secret.AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            --set secret.AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-            --set secret.API_KEY=${{ secrets.API_KEY }} \
-            --set config.AWS_REGION=${{ secrets.AWS_REGION }} \
-            --set config.S3_BUCKET=${{ secrets.S3_BUCKET }} \
-            --set config.DYNAMODB_TABLE=${{ secrets.DYNAMODB_TABLE }}
-
-  wait-for-approval-main:
-    name: ✅ Wait for Approval to Main
-    runs-on: ubuntu-latest
-    needs: deploy-release
-    if: ${{ needs.deploy-release.result == 'success' }}
     environment: main
+    permissions:
+      contents: write
     steps:
-      - name: 🧾 Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: ✅ Manual Approval for Main
-        uses: actions/github-script@v6
+      - name: Manual Approval for Main
+        uses: peaceiris/actions-gh-oidc@v1
         with:
-          script: |
-            core.info("✅ Waiting for approval to merge into main")
-            const { context } = require('@actions/github')
-            const { exec } = require('@actions/exec')
+          enable: true
 
-            await github.rest.actions.createWorkflowDispatchEventRequest({
-              repo: context.repo.repo,
-              owner: context.repo.owner,
-              workflow_id: "deploy.yaml",
-              ref: "main"
-            })
-
-            core.info("✅ Merging into main")
-            await exec.exec(`git config --global user.email "action@github.com"`)
-            await exec.exec(`git config --global user.name "GitHub Action"`)
-            await exec.exec(`git checkout main`)
-            await exec.exec(`git merge release --no-edit`)
-            await exec.exec(`git push origin main`)
-
-  deploy-main:
-    name: 🚀 Deploy to Main (Production)
-    runs-on: ubuntu-latest
-    needs: wait-for-approval-main
-    steps:
-      - name: 📦 Checkout code
-        uses: actions/checkout@v4
-
-      - name: 🧰 Setup Helm
-        uses: azure/setup-helm@v3
-        with:
-          version: v3.12.0
-
-      - name: 🚀 Deploy to Kubernetes (Main)
+      - name: Merge into Main
         run: |
-          helm upgrade --install prima-api helm/ \
-            --set image.repository=abz7896/prima-api \
-            --set image.tag=${{ needs.build.outputs.build_tag }} \
-            --set secret.AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }} \
-            --set secret.AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }} \
-            --set secret.API_KEY=${{ secrets.API_KEY }} \
-            --set config.AWS_REGION=${{ secrets.AWS_REGION }} \
-            --set config.S3_BUCKET=${{ secrets.S3_BUCKET }} \
-            --set config.DYNAMODB_TABLE=${{ secrets.DYNAMODB_TABLE }}
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git checkout main
+          git merge release --no-edit
+          git push origin main
