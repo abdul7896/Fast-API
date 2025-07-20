@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prima-api-config
-data:
-  AWS_REGION: "{{ .Values.config.AWS_REGION }}"
-  S3_BUCKET: "{{ .Values.config.S3_BUCKET }}"
-  DYNAMODB_TABLE: "{{ .Values.config.DYNAMODB_TABLE }}"
