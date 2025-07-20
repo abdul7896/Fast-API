@@ -1,0 +1,11 @@
+config:
+  AWS_REGION: us-east-1
+  S3_BUCKET: prima-avatars-bucket
+  DYNAMODB_TABLE: users
+
+image:
+  repository: abz7896/prima-api
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
