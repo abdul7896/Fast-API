@@ -123,3 +123,23 @@ docs/
 tmp/
 temp/
 *.md.tmp
+
+# .gitignore
+.env
+*.env
+*.log
+*.pem
+*.key
+*.crt
+*.yaml
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tf
+*.s3
+*.dynamodb
+*.aws
+*.secret
+*.secrets
+values-secret.yaml
+helm/values-secret.yaml

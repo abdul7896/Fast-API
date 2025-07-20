@@ -2,7 +2,6 @@ __pycache__
 *.pyc
 *.pyo
 *.pyd
-*.pyc
 *.db
 *.sqlite3
 *.log
@@ -12,3 +11,7 @@ venv
 .git
 .hg
 .svn
+*.md
+*.DS_Store
+.pytest_cache
+.dockerignore
