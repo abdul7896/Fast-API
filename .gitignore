@@ -1,0 +1,145 @@
+# Python specific
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.pyc
+*.db
+*.sqlite3
+*.log
+*.pot
+*.mo
+*.po
+MANIFEST
+env/
+venv/
+virtualenv/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+*.egg
+
+# IDE specific
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git-related
+*.orig
+*.rej
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Python environments
+.venv/
+venv/
+env/
+virtualenv/
+__pycache__
+*.pyc
+
+# Local development files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+.env.example
+.env.docker
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite3
+
+# Docker
+*.tar.gz
+*.tar
+
+# Node.js (if you have frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log
+
+# PyCharm
+*.iml
+*.iws
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pytest
+.pytest_cache/
+
+# Coverage.py
+.coverage
+coverage.xml
+htmlcov/
+
+# Local terraform binaries and plugins
+.terraform/
+.terraform.lock.hcl
+
+# Terraform state files
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate
+*.tfstate.*
+
+# Workspace directory (if using terraform workspaces)
+env:/ 
+env
+ENV
+
+# Ignore variable files containing secrets
+*.auto.tfvars
+*.tfvars
+*.tfvars.json
+
+# Ignore output files
+*.out
+*.log
+*.backup
+
+# Ignore IDE-specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Ignore dependency lock files (if not using Terraform 0.14+)
+.lock.hcl
+
+# Ignore documentation and temporary files
+docs/
+tmp/
+temp/
+*.md.tmp
+
+# .gitignore
+.env
+*.env
+*.log
+*.pem
+*.key
+*.crt
+*.yaml
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tf
+*.s3
+*.dynamodb
+*.aws
+*.secret
+*.secrets
+values-secret.yaml
+helm/values-secret.yaml

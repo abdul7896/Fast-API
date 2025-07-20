@@ -1,0 +1,105 @@
+# .github/workflows/deploy.yaml
+name: Prima API CI/CD
+
+on:
+  push:
+    branches:
+      - feature/python-api-server-final
+
+jobs:
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      build_tag: ${{ steps.set_tag.outputs.build_tag }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set build tag
+        id: set_tag
+        run: |
+          BUILD_TAG=dev-$(date +'%Y%m%d')-$(git rev-parse --short HEAD)
+          echo "BUILD_TAG=$BUILD_TAG" >> $GITHUB_ENV
+          echo "::set-output name=build_tag::${BUILD_TAG}"
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: abz7896/prima-api:${{ env.BUILD_TAG }}
+
+  deploy-dev:
+    name: Manual Approval for Dev
+    runs-on: ubuntu-latest
+    needs: build
+    environment: dev
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Merge into dev
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+
+          git fetch origin
+
+          git checkout dev
+          git merge feature/python-api-server-final --no-edit --allow-unrelated-histories
+          git push origin dev
+
+  deploy-release:
+    name: Manual Approval for Release
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    if: ${{ needs.deploy-dev.result == 'success' }}
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Merge into release
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+
+          git fetch origin
+
+          git checkout release
+          git merge dev --no-edit --allow-unrelated-histories
+          git push origin release
+
+  deploy-main:
+    name: Manual Approval for Main
+    runs-on: ubuntu-latest
+    needs: deploy-release
+    if: ${{ needs.deploy-release.result == 'success' }}
+    environment: main
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Merge into main
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+
+          git fetch origin
+
+          git checkout main
+          git merge release --no-edit --allow-unrelated-histories
+          git push origin main
