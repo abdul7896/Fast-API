@@ -55,7 +55,7 @@ jobs:
           git fetch origin
 
           git checkout dev
-          git merge feature/python-api-server-final --no-edit --allow-unrelated-histories
+          git merge origin/feature/python-api-server-final --no-edit --allow-unrelated-histories
           git push origin dev
 
   deploy-release:
@@ -78,7 +78,7 @@ jobs:
           git fetch origin
 
           git checkout release
-          git merge dev --no-edit --allow-unrelated-histories
+          git merge origin/dev --no-edit --allow-unrelated-histories
           git push origin release
 
   deploy-main:
@@ -101,5 +101,5 @@ jobs:
           git fetch origin
 
           git checkout main
-          git merge release --no-edit --allow-unrelated-histories
+          git merge origin/release --no-edit --allow-unrelated-histories
           git push origin main
