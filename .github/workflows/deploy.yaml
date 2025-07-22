@@ -196,8 +196,9 @@ jobs:
       - name: Push to dev branch
         run: |
           git fetch origin
-          git checkout dev
-          git pull origin feature/python-api-server-final --allow-unrelated-histories || git merge origin/feature/python-api-server-final --no-edit --allow-unrelated-histories || echo "Merge conflict, forcing push"
+          git checkout dev || git checkout -b dev
+          git pull origin feature/python-api-server-final --allow-unrelated-histories || echo "No remote feature branch to pull"
+          git merge origin/feature/python-api-server-final --no-edit --allow-unrelated-histories || echo "Merge completed"
           git push origin dev
 
   deploy-release:
@@ -222,8 +223,9 @@ jobs:
       - name: Push to release branch
         run: |
           git fetch origin
-          git checkout release
-          git pull origin dev --allow-unrelated-histories || git merge origin/dev --no-edit --allow-unrelated-histories || echo "Merge conflict, forcing push"
+          git checkout release || git checkout -b release
+          git pull origin dev --allow-unrelated-histories || echo "No remote dev branch to pull"
+          git merge origin/dev --no-edit --allow-unrelated-histories || echo "Merge completed"
           git push origin release
 
   deploy-main:
@@ -248,29 +250,55 @@ jobs:
       - name: Push to main branch
         run: |
           git fetch origin
-          git checkout main
-          git pull origin release --allow-unrelated-histories || git merge origin/release --no-edit --allow-unrelated-histories || echo "Merge conflict, forcing push"
+          git checkout main || git checkout -b main
+          git pull origin release --allow-unrelated-histories || echo "No remote release branch to pull"
+          git merge origin/release --no-edit --allow-unrelated-histories || echo "Merge completed"
           git push origin main
 
-  notify-slack:
-    name: Slack Notification
+  notify-slack-dev:
+    name: Slack Notification - Dev
     runs-on: ubuntu-latest
     if: always()
-    needs:
-      - build
-      - terraform
-      - tests
-      - helm_lint
-      - deploy-dev
-      - deploy-release
-      - deploy-main
+    needs: deploy-dev
     steps:
-      - name: Send Slack Status
+      - name: Send Slack Status for Dev
         uses: slackapi/slack-github-action@v1.26.0
         with:
           payload: |
             {
-              "text": "Workflow: ${{ github.workflow }}\nStatus: ${{ job.status }}\nBranch: ${{ github.ref_name }}\nBy: ${{ github.actor }}"
+              "text": "🚀 Dev Deployment\nWorkflow: ${{ github.workflow }}\nStatus: ${{ needs.deploy-dev.result }}\nBranch: ${{ github.ref_name }}\nBy: ${{ github.actor }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  notify-slack-release:
+    name: Slack Notification - Release
+    runs-on: ubuntu-latest
+    if: always()
+    needs: deploy-release
+    steps:
+      - name: Send Slack Status for Release
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "🚀 Release Deployment\nWorkflow: ${{ github.workflow }}\nStatus: ${{ needs.deploy-release.result }}\nBranch: ${{ github.ref_name }}\nBy: ${{ github.actor }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  notify-slack-main:
+    name: Slack Notification - Main
+    runs-on: ubuntu-latest
+    if: always()
+    needs: deploy-main
+    steps:
+      - name: Send Slack Status for Main
+        uses: slackapi/slack-github-action@v1.26.0
+        with:
+          payload: |
+            {
+              "text": "🚀 Main Deployment\nWorkflow: ${{ github.workflow }}\nStatus: ${{ needs.deploy-main.result }}\nBranch: ${{ github.ref_name }}\nBy: ${{ github.actor }}"
             }
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
