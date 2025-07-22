@@ -1,22 +1,12 @@
-resource "aws_s3_bucket" "avatars" {
-  bucket = "prima-avatars-${var.environment}"  # e.g., prima-avatars-dev
-
-  tags = {
-    Environment = var.environment
-  }
+# terraform/main.tf
+module "s3" {
+  source         = "./modules/s3"
+  s3_bucket_name = var.s3_bucket_name
 }
 
-resource "aws_dynamodb_table" "users" {
-  name         = "users-${var.environment}"  # e.g., users-dev
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "email"  # Partition key
-
-  attribute {
-    name = "email"
-    type = "S"  # String
-  }
-
-  tags = {
-    Environment = var.environment
-  }
+module "dynamodb" {
+  source     = "./modules/dynamodb"
+  table_name = var.dynamodb_table_name
+  aws_region = var.aws_region
 }
+

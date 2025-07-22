@@ -1,7 +1,9 @@
 output "s3_bucket_name" {
-  value = aws_s3_bucket.avatars.bucket
+  description = "Name of the S3 bucket"
+  value       = module.s3.s3_bucket_name
 }
 
 output "dynamodb_table_name" {
-  value = aws_dynamodb_table.users.name
+  description = "Name of the DynamoDB table"
+  value       = module.dynamodb.table_name
 }
