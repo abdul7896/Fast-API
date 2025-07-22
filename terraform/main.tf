@@ -9,3 +9,4 @@ module "dynamodb" {
   table_name = var.dynamodb_table_name
   aws_region = var.aws_region
 }
+
