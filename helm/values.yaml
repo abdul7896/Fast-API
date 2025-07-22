@@ -17,3 +17,12 @@ resources:
     cpu: 200m
     memory: 256Mi
 
+env:
+  AWS_REGION: "us-east-1"
+  DYNAMODB_TABLE_NAME: "users"
+  AWS_ACCESS_KEY_ID: "local-access-key"
+  AWS_SECRET_ACCESS_KEY: "local-secret-key"
+  API_KEY: "local-api-key"
+  S3_BUCKET: "local-bucket"
+  DYNAMODB_TABLE: "local-table"
+
