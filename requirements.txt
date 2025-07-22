@@ -11,3 +11,5 @@ python-dotenv==1.1.1
 uvicorn==0.22.0
 httpx==0.27.0
 Cython==3.0.7
+python-multipart==0.0.5
+
