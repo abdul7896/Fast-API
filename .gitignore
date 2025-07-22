@@ -131,11 +131,9 @@ temp/
 *.pem
 *.key
 *.crt
-*.yaml
 *.tfstate
 *.tfstate.*
 *.tfvars
-*.tf
 *.s3
 *.dynamodb
 *.aws
