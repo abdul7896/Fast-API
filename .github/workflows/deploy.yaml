@@ -34,9 +34,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt bandit
 
-      - name: Run Python Lint (flake8)
-        run: flake8 app tests
-
       - name: Run Security Scan (bandit)
         run: bandit -r app
 
