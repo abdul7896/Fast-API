@@ -70,12 +70,6 @@ jobs:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Check terraform directory content
-        run: ls -la terraform
-
-      - name: Check terraform/modules directory content
-        run: ls -la terraform/modules
-
       - name: Setup Terraform CLI v1.8.5
         uses: hashicorp/setup-terraform@v2
         with:
