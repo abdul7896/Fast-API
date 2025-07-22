@@ -148,6 +148,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # full history (optional but safer)
+          submodules: recursive # if you use git submodules (optional)
 
       - name: Setup Helm CLI v3.11.3
         uses: azure/setup-helm@v3
