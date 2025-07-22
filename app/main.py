@@ -1,12 +1,16 @@
 import os
 import uuid
 from typing import List
-
 import boto3
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
+from prometheus_fastapi_instrumentator import Instrumentator
+
+instrumentator = Instrumentator()
+instrumentator.instrument(app).expose(app)
+
 
 load_dotenv()
 app = FastAPI(docs_url="/docs", openapi_url="/openapi.json")
@@ -77,3 +81,5 @@ def create_user(
     except Exception as e:
         print(f"[create_user] Unexpected error: {e}", flush=True)
         raise HTTPException(status_code=500, detail="Internal Server Error")
+    
+

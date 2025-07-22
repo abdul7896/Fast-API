@@ -241,7 +241,7 @@ jobs:
     name: Slack Notification
     runs-on: ubuntu-latest
     if: always()
-    needs: [deploy-main]  # or [deploy-dev, tests, etc.]
+    needs: [deploy-main]
     steps:
       - name: Notify Slack
         uses: 8398a7/action-slack@v3
