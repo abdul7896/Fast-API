@@ -142,5 +142,4 @@ temp/
 *.secret
 *.secrets
 values-secret.yaml
-helm/values-secret.yaml
 .SECRETS
