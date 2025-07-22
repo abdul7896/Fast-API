@@ -1,6 +1,4 @@
-# .github/workflows/deploy.yaml
 name: Prima API CI/CD
-
 on:
   push:
     branches:
@@ -15,6 +13,25 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Cache Python dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt flake8 bandit moto pytest-mock
+
+      - name: Run Linting
+        run: flake8 app tests
 
       - name: Set build tag
         id: set_tag
@@ -36,105 +53,130 @@ jobs:
           push: true
           tags: abz7896/prima-api:${{ env.BUILD_TAG }}
 
-  terraform:
-    name: Run Terraform Apply
+  security_scan:
+    name: Security Scan (Bandit)
     runs-on: ubuntu-latest
     needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install Bandit
+        run: pip install bandit
+      - name: Run Bandit
+        run: bandit -r app
+
+  tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: build
+    env:
+      API_KEY: ${{ secrets.API_KEY }}
+      AWS_REGION: us-east-1
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
+      - name: Install deps
+        run: |
+          pip install -r requirements.txt
+          pip install pytest moto pytest-mock
+      - name: Run pytest
+        run: |
+          PYTHONPATH=. pytest tests/unit test/integration --maxfail=3 -v
+
+  helm_lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+      - name: Helm Lint
+        run: helm lint ./helm
+
+  terraform_apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: [build, tests]
     environment: release
     permissions:
       contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.8.5
-
-      - name: Terraform Init
-        run: |
-          cd terraform
-          terraform init
-
-      - name: Terraform Apply
-        run: |
-          cd terraform
-          terraform apply -auto-approve
-
-      - name: Output Terraform Results
-        run: |
-          cd terraform
-          terraform output -json > ../terraform.json
-          cat ../terraform.json
+      - name: Terraform Init & Apply
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -auto-approve
 
-  deploy-dev:
-    name: Manual Approval for Dev
+  deploy_dev:
+    name: Auto-Merge to Dev
     runs-on: ubuntu-latest
-    needs: build
-    environment: dev
-    permissions:
-      contents: write
+    needs: [tests, security_scan, helm_lint]
+    if: success()
     steps:
-      - name: Checkout code
+      - name: Checkout main branch
         uses: actions/checkout@v4
-
-      - name: Merge into dev
+        with:
+          ref: dev
+      - name: Merge feature into dev
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-
-          git fetch origin
-
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git checkout dev
           git merge origin/feature/python-api-server-final --no-edit --allow-unrelated-histories
           git push origin dev
 
-  deploy-release:
-    name: Manual Approval for Release
+  deploy_release:
+    name: Auto-Merge to Release
     runs-on: ubuntu-latest
-    needs: deploy-dev
-    if: ${{ needs.deploy-dev.result == 'success' }}
-    environment: release
-    permissions:
-      contents: write
+    needs: deploy_dev
+    if: success()
     steps:
-      - name: Checkout code
+      - name: Checkout release
         uses: actions/checkout@v4
-
-      - name: Merge into release
+        with:
+          ref: release
+      - name: Merge dev into release
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-
-          git fetch origin
-
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git checkout release
           git merge origin/dev --no-edit --allow-unrelated-histories
           git push origin release
 
-  deploy-main:
-    name: Manual Approval for Main
+  deploy_main:
+    name: Auto-Merge to Main
     runs-on: ubuntu-latest
-    needs: deploy-release
-    if: ${{ needs.deploy-release.result == 'success' }}
-    environment: main
-    permissions:
-      contents: write
+    needs: deploy_release
+    if: success()
     steps:
-      - name: Checkout code
+      - name: Checkout main
         uses: actions/checkout@v4
-
-      - name: Merge into main
+        with:
+          ref: main
+      - name: Merge release into main
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
-
-          git fetch origin
-
+          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
           git checkout main
           git merge origin/release --no-edit --allow-unrelated-histories
           git push origin main

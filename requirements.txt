@@ -14,3 +14,7 @@ python-dotenv
 pytest-cov
 locust
 pydantic
+pytest-mock
+locust 
+flake8
+checkout@v4

@@ -1,0 +1,44 @@
+import io
+import os
+from fastapi.testclient import TestClient
+from app.main import app
+
+API_KEY = os.getenv("API_KEY", "your-secret-api-key")
+client = TestClient(app)
+
+def get_headers(key=API_KEY):
+    return {"X-API-Key": key}
+
+def test_missing_api_key():
+    response = client.post("/user")
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Not authenticated"
+
+def test_invalid_api_key():
+    response = client.post("/user", headers=get_headers("wrongkey"))
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Invalid API Key"
+
+def test_missing_name():
+    files = {"avatar": ("avatar.jpg", io.BytesIO(b"fake image"), "image/jpeg")}
+    data = {"email": "user@example.com"}
+    response = client.post("/user", headers=get_headers(), data=data, files=files)
+    assert response.status_code == 422  # Missing required 'name' field
+
+def test_missing_email():
+    files = {"avatar": ("avatar.jpg", io.BytesIO(b"fake image"), "image/jpeg")}
+    data = {"name": "Test User"}
+    response = client.post("/user", headers=get_headers(), data=data, files=files)
+    assert response.status_code == 422  # Missing required 'email' field
+
+def test_missing_avatar():
+    data = {"name": "Test User", "email": "user@example.com"}
+    response = client.post("/user", headers=get_headers(), data=data)  # no files
+    assert response.status_code == 422  # Missing required 'avatar' file
+
+def test_invalid_avatar_type():
+    files = {"avatar": ("avatar.png", io.BytesIO(b"fake image"), "image/png")}
+    data = {"name": "Test User", "email": "user@example.com"}
+    response = client.post("/user", headers=get_headers(), data=data, files=files)
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Only JPG images are allowed"
