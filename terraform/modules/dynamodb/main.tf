@@ -22,25 +22,25 @@ resource "aws_dynamodb_table" "users_table" {
 
 
 
-# IAM Policy for DynamoDB
-resource "aws_iam_policy" "dynamodb_access" {
-  name        = "PrimaDynamoDBAccess"
-  description = "Allow DynamoDB access for prima-avatars-bucket"
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "dynamodb:PutItem",
-          "dynamodb:GetItem",
-          "dynamodb:Scan",
-          "dynamodb:DeleteItem",
-          "dynamodb:UpdateItem"
-        ]
-        Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.table_name}"
-      }
-    ]
-  })
-}
+# # IAM Policy for DynamoDB
+# resource "aws_iam_policy" "dynamodb_access" {
+#   name        = "PrimaDynamoDBAccess"
+#   description = "Allow DynamoDB access for prima-avatars-bucket"
+#   policy = jsonencode({
+#     Version = "2012-10-17"
+#     Statement = [
+#       {
+#         Effect = "Allow"
+#         Action = [
+#           "dynamodb:PutItem",
+#           "dynamodb:GetItem",
+#           "dynamodb:Scan",
+#           "dynamodb:DeleteItem",
+#           "dynamodb:UpdateItem"
+#         ]
+#         Resource = "arn:aws:dynamodb:${var.aws_region}:*:table/${var.table_name}"
+#       }
+#     ]
+#   })
+# }
 
