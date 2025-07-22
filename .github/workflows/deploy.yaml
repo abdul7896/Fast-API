@@ -236,3 +236,19 @@ jobs:
           git checkout main
           git merge origin/release --no-edit --allow-unrelated-histories
           git push origin main
+
+  notify-slack:
+    name: Slack Notification
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [deploy-main]
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: job,commit,repo,ref,workflow
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  

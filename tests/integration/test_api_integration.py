@@ -1,10 +1,8 @@
 import io
 import os
-
 import boto3
 from fastapi.testclient import TestClient
 from moto import mock_aws
-
 import app.main as main_module
 
 # Set fake credentials and config for tests
