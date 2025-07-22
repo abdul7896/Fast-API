@@ -6,10 +6,6 @@ from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.security import APIKeyHeader
 from pydantic import BaseModel
-from prometheus_fastapi_instrumentator import Instrumentator
-
-instrumentator = Instrumentator()
-instrumentator.instrument(app).expose(app)
 
 
 load_dotenv()
