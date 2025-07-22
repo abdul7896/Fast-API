@@ -240,8 +240,8 @@ jobs:
   notify-slack:
     name: Slack Notification
     runs-on: ubuntu-latest
-    if: always()
     needs: [deploy-main]
+    if: github.ref == 'refs/heads/main' && always()
     steps:
       - name: Notify Slack
         uses: 8398a7/action-slack@v3
@@ -250,5 +250,4 @@ jobs:
           fields: job,commit,repo,ref,workflow
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
   
