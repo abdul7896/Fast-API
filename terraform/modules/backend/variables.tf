@@ -1,9 +1,17 @@
-variable "bucket_name" {
-  description = "Name of the S3 bucket for terraform state"
+variable "region" {
+  description = "AWS region for backend resources"
   type        = string
+  default     = "us-east-1"
 }
 
-variable "lock_table_name" {
-  description = "Name of the DynamoDB table for terraform state locking"
+variable "bucket_name" {
+  description = "S3 bucket name for Terraform state"
   type        = string
+  default     = "my-prima-tf-state"
+}
+
+variable "dynamodb_table_name" {
+  description = "DynamoDB table name for Terraform state locking"
+  type        = string
+  default     = "terraform-lock-table"
 }
