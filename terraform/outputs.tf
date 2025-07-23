@@ -8,5 +8,5 @@ output "s3_bucket_name" {
 }
 
 output "kms_key_arn" {
-  value = module.kms.key_arn
+  value = module.kms.kms_key_arn
 }
