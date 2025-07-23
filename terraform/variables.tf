@@ -1,7 +1,6 @@
-variable "aws_region" {
+variable "region" {
   description = "AWS region"
   type        = string
-  default     = "us-east-1"
 }
 
 variable "s3_bucket_name" {
@@ -14,4 +13,10 @@ variable "dynamodb_table_name" {
   description = "Name for the DynamoDB table"
   type        = string
   default     = "users"
+}
+
+variable "kms_key_alias" {
+  description = "Alias for the KMS key"
+  type        = string
+  default     = "prima-api-key-alias"
 }
