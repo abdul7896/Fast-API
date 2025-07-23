@@ -4,7 +4,7 @@ output "dynamodb_table_name" {
 }
 
 output "s3_bucket_name" {
-  value = module.s3.bucket_name  # Changed from s3_bucket_name to bucket_name
+  value = module.s3.bucket_name # Changed from s3_bucket_name to bucket_name
 }
 
 output "kms_key_arn" {
