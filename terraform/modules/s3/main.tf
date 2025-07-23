@@ -8,8 +8,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "avatars_bucket_ss
 
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm     = "aws:kms"
-      kms_master_key_id = var.kms_key_arn
+      sse_algorithm     = "AES256"
     }
   }
 }
@@ -39,3 +38,19 @@ resource "aws_s3_bucket_versioning" "avatars_bucket_versioning" {
   }
 }
 
+resource "aws_s3_bucket_policy" "avatars_bucket_policy" {
+  bucket = aws_s3_bucket.avatars_bucket.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid       = "AllowPublicRead",
+        Effect    = "Allow",
+        Principal = "*",
+        Action    = "s3:GetObject",
+        Resource  = "${aws_s3_bucket.avatars_bucket.arn}/*"
+      }
+    ]
+  })
+}
