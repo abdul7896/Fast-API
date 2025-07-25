@@ -5,19 +5,6 @@ from fastapi.testclient import TestClient
 from moto import mock_aws
 import app.main as main_module
 
-# Set fake AWS credentials and environment variables for testing
-os.environ.update(
-    {
-        "AWS_ACCESS_KEY_ID": "testing",
-        "AWS_SECRET_ACCESS_KEY": "testing",
-        "AWS_SESSION_TOKEN": "testing",
-        "AWS_REGION": "us-east-1",
-        "S3_BUCKET": "test-bucket",
-        "DYNAMODB_TABLE": "test-table",
-        "API_KEY": "testkey",
-    }
-)
-
 # Create a test client for FastAPI app
 client = TestClient(main_module.app)
 
