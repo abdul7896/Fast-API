@@ -1,8 +1,15 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
+  # Name of the ConfigMap resource
   name: prima-app-config
 data:
+  # AWS region for connecting to AWS services
   AWS_REGION: "{{ .Values.env.AWS_REGION }}"
+
+  # Name of the S3 bucket used by the application
   S3_BUCKET: "{{ .Values.env.S3_BUCKET }}"
+
+  # Name of the DynamoDB table used by the application
   DYNAMODB_TABLE: "{{ .Values.env.DYNAMODB_TABLE }}"
+
