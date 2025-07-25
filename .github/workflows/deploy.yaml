@@ -124,6 +124,11 @@ jobs:
     needs: terraform
     env:
       API_KEY: ${{ secrets.API_KEY }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

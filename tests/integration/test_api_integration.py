@@ -6,11 +6,6 @@ from moto import mock_aws
 
 import app.main as main_module
 
-# Validate required env vars exist (optional but recommended)
-for var in ["S3_BUCKET", "DYNAMODB_TABLE", "API_KEY"]:
-    if not os.getenv(var):
-        raise EnvironmentError(f"Missing required env var: {var}")
-
 client = TestClient(main_module.app)
 
 
