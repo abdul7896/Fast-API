@@ -1,6 +1,17 @@
+# Helm chart API version (v2 required for Helm 3 and above)
 apiVersion: v2
+
+# Name of the Helm chart
 name: prima-api
+
+# Version of this Helm chart (follows semantic versioning)
 version: 0.1.0
+
+# Version of the application being deployed
 appVersion: "1.0"
+
+# Brief description of what this Helm chart deploys
 description: A Helm chart for Prima API
+
+# Type of Helm chart - "application" for deployable apps, "library" for reusable charts
 type: application
