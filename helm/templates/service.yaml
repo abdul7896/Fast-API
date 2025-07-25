@@ -1,12 +1,22 @@
+# API version and resource kind for a Kubernetes Service
 apiVersion: v1
 kind: Service
+
+# Metadata section defines the service's name using Helm template variables
 metadata:
+  # Service name combines the Helm release name and chart name
   name: {{ .Release.Name }}-{{ .Chart.Name }}
+
 spec:
+  # Selector to associate the service with pods labeled by the app name
   selector:
     app: {{ .Chart.Name }}
+
+  # List of ports that the service exposes
   ports:
-    - protocol: TCP
-      port: {{ .Values.service.port }}
-      targetPort: 8000
+    - protocol: TCP  # Protocol used by the service
+      port: {{ .Values.service.port }}  # Port exposed by the service (from values.yaml)
+      targetPort: 8000  # Port on the pod to which traffic is forwarded
+
+  # Service type, e.g., ClusterIP, NodePort, LoadBalancer (from values.yaml)
   type: {{ .Values.service.type }}
