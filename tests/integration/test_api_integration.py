@@ -7,7 +7,7 @@ import app.main as main_module
 
 # Create a test client for FastAPI app
 client = TestClient(main_module.app)
-
+S3_BUCKET = os.getenv("S3_BUCKET")
 
 def setup_aws():
     """
