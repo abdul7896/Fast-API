@@ -3,18 +3,18 @@ import os
 import boto3
 from fastapi.testclient import TestClient
 from moto import mock_aws
+
 import app.main as main_module
 
-# Create a test client for FastAPI app
+# Validate required env vars exist (optional but recommended)
+for var in ["S3_BUCKET", "DYNAMODB_TABLE", "API_KEY"]:
+    if not os.getenv(var):
+        raise EnvironmentError(f"Missing required env var: {var}")
+
 client = TestClient(main_module.app)
-S3_BUCKET = os.getenv("S3_BUCKET")
+
 
 def setup_aws():
-    """
-    Setup mocked AWS environment:
-    - Create S3 bucket for avatars
-    - Create DynamoDB table for users with email as the partition key
-    """
     s3 = boto3.client("s3", region_name="us-east-1")
     s3.create_bucket(Bucket=os.getenv("S3_BUCKET"))
 
@@ -29,12 +29,6 @@ def setup_aws():
 
 @mock_aws
 def test_create_user_flow():
-    """
-    Test creating a user with avatar upload.
-    - Setup AWS mocks
-    - POST user data and avatar
-    - Verify response status and returned data
-    """
     setup_aws()
 
     files = {"avatar": ("avatar.jpg", io.BytesIO(b"data"), "image/jpeg")}
@@ -54,13 +48,6 @@ def test_create_user_flow():
 
 @mock_aws
 def test_get_users_flow():
-    """
-    Test retrieving list of users.
-    - Setup AWS mocks
-    - Create a user first
-    - GET users list
-    - Assert the created user exists in the response
-    """
     setup_aws()
 
     client.post(
@@ -71,7 +58,6 @@ def test_get_users_flow():
     )
 
     response = client.get("/users", headers={"X-API-Key": os.getenv("API_KEY")})
-
     assert response.status_code == 200
 
     users = response.json()
