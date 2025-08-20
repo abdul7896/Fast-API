@@ -1,4 +1,4 @@
-# **Prima SRE Tech Challenge**  
+# **Fast API Tech**  
 ## **End-to-End Infrastructure and Deployment Solution**
 
 ### **Overview**
@@ -147,10 +147,6 @@ I automated the entire workflow using GitHub Actions:
 ### **How to Run It Locally**
 
 1. **Clone the repo**
-   ```bash
-   git clone https://github.com/abdul7896/prima-tech-challenge.git
-   cd prima-tech-challenge
-   ```
 
 2. **Create `.env` file**
    ```env
