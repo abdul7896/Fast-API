@@ -1,0 +1,128 @@
+name: CD - Deploy to Staging
+
+on:
+  workflow_call:
+    inputs:
+      commit_sha:
+        required: true
+        type: string
+      branch:
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      AWS_REGION:
+        required: false
+        default: "us-east-1"
+      SLACK_WEBHOOK_URL:
+        required: false
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: inputs.branch == 'release'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: v1.28.0
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.12.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name prima-api-cluster --region ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace prima-api-staging --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy User Service
+        run: |
+          helm upgrade --install user-service \
+            kubernetes/helm/charts/user-service \
+            --namespace prima-api-staging \
+            --set image.tag=sha-${{ github.sha }} \
+            --set environment=staging \
+            --set replicaCount=2
+
+      - name: Deploy Avatar Service
+        run: |
+          helm upgrade --install avatar-service \
+            kubernetes/helm/charts/avatar-service \
+            --namespace prima-api-staging \
+            --set image.tag=sha-${{ github.sha }} \
+            --set environment=staging \
+            --set replicaCount=2
+
+      - name: Deploy API Gateway
+        run: |
+          helm upgrade --install api-gateway \
+            kubernetes/helm/charts/api-gateway \
+            --namespace prima-api-staging \
+            --set image.tag=sha-${{ github.sha }} \
+            --set environment=staging \
+            --set replicaCount=2
+
+  notify:
+    name: Send Staging Deployment Notification
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: always()
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "🎭 Prima API Staging Deployment Status",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Prima API Staging Deployment Status"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ inputs.branch }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n${{ inputs.commit_sha }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:*\n${{ job.status }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

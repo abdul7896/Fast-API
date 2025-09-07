@@ -1,0 +1,78 @@
+name: Prima API CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, release, dev ]
+  pull_request:
+    branches: [ main, release, dev ]
+  workflow_dispatch:
+
+env:
+  DOCKER_REGISTRY: ${{ secrets.DOCKER_REGISTRY || 'docker.io' }}
+  DOCKER_IMAGE_NAME: prima-api
+  AWS_REGION: us-east-1
+  TERRAFORM_VERSION: 1.6.0
+  HELM_VERSION: v3.12.0
+  KUBECTL_VERSION: v1.28.0
+
+jobs:
+  # Trigger all parallel workflows
+  trigger-workflows:
+    name: Trigger Parallel Workflows
+    runs-on: ubuntu-latest
+    outputs:
+      commit_sha: ${{ steps.set_outputs.outputs.commit_sha }}
+      branch: ${{ steps.set_outputs.outputs.branch }}
+    steps:
+      - name: Set outputs
+        id: set_outputs
+        run: |
+          echo "commit_sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "branch=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+
+  # Wait for all workflows to complete and send notifications
+  notify-completion:
+    name: Send Completion Notification
+    runs-on: ubuntu-latest
+    needs: [trigger-workflows]
+    if: always()
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "🎉 Prima API CI/CD Pipeline completed",
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "Prima API CI/CD Pipeline Status"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Repository:*\n${{ github.repository }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Branch:*\n${{ github.ref_name }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Commit:*\n${{ github.sha }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Status:*\n${{ job.status }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
