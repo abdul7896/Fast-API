@@ -141,3 +141,4 @@ temp/
 *.secrets
 values-secret.yaml
 .SECRETS
+.aider*

@@ -1,18 +1,31 @@
-bandit==1.8.6
-boto3==1.39.9
-fastapi==0.95.2
-flake8==7.3.0
-moto==5.1.8
-pydantic==1.10.22
-pytest==8.4.1
-pytest-cov==6.2.1
-pytest-mock==3.14.1
-python-dotenv==1.1.1
-uvicorn==0.22.0
-httpx==0.27.0
-Cython==3.0.7
-python-multipart==0.0.5
-pydantic[email]==1.10.22
+# Core API dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic[email]==2.5.0
+python-multipart==0.0.6
+
+# AWS SDK
+boto3==1.34.0
+botocore==1.34.0
+
+# Environment and configuration
+python-dotenv==1.0.0
+
+# Development and testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+httpx==0.25.2
+moto==4.2.14
+
+# Code quality and security
+bandit==1.7.5
+flake8==6.1.0
+black==23.11.0
+isort==5.12.0
+
+# Build dependencies
+Cython==3.0.5
 
 
 

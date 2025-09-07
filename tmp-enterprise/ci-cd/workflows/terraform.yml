@@ -1,0 +1,55 @@
+name: Terraform
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'infrastructure/terraform/**'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'infrastructure/terraform/**'
+
+jobs:
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+
+    - name: Terraform Format
+      id: fmt
+      run: |
+        cd infrastructure/terraform
+        terraform fmt -check
+
+    - name: Terraform Init
+      id: init
+      run: |
+        cd infrastructure/terraform
+        terraform init
+
+    - name: Terraform Validate
+      id: validate
+      run: |
+        cd infrastructure/terraform
+        terraform validate -no-color
+
+    - name: Terraform Plan
+      id: plan
+      if: github.event_name == 'pull_request'
+      run: |
+        cd infrastructure/terraform
+        terraform plan -no-color
+      continue-on-error: true
+
+    - name: Terraform Apply
+      id: apply
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: |
+        cd infrastructure/terraform
+        terraform apply -auto-approve

@@ -1,8 +1,13 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  # Name of the ConfigMap resource
-  name: prima-app-config
+  name: {{ .Release.Name }}-config
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/version: {{ .Chart.AppVersion }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
 data:
   # AWS region for connecting to AWS services
   AWS_REGION: "{{ .Values.env.AWS_REGION }}"

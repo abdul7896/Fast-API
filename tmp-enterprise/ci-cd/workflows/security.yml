@@ -1,0 +1,45 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday at midnight
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [user-service, avatar-service, api-gateway]
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        cd microservices/${{ matrix.service }}
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Security scan with Bandit
+      run: |
+        cd microservices/${{ matrix.service }}
+        pip install bandit
+        bandit -r app/ -ll
+
+    - name: Docker image scan with Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'prima-api/${{ matrix.service }}:latest'
+        format: 'table'
+        exit-code: '1'
+        ignore-unfixed: true
+        vuln-type: 'os,library'
+        severity: 'CRITICAL,HIGH'

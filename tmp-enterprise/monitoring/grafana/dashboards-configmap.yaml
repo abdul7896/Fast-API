@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: prima-api
+data:
+  prima-api-dashboard.json: |
+    {
+      "dashboard": {
+        "id": null,
+        "title": "Prima API Dashboard",
+        "timezone": "browser",
+        "schemaVersion": 16,
+        "version": 0,
+        "refresh": "25s",
+        "panels": [
+          {
+            "id": 1,
+            "type": "graph",
+            "title": "API Requests",
+            "gridPos": {
+              "x": 0,
+              "y": 0,
+              "w": 12,
+              "h": 9
+            },
+            "targets": [
+              {
+                "expr": "rate(prima_api_requests_total[5m])",
+                "legendFormat": "Requests per second"
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "type": "graph",
+            "title": "Error Rate",
+            "gridPos": {
+              "x": 12,
+              "y": 0,
+              "w": 12,
+              "h": 9
+            },
+            "targets": [
+              {
+                "expr": "rate(prima_api_errors_total[5m])",
+                "legendFormat": "Errors per second"
+              }
+            ]
+          },
+          {
+            "id": 3,
+            "type": "stat",
+            "title": "Uptime",
+            "gridPos": {
+              "x": 0,
+              "y": 9,
+              "w": 12,
+              "h": 4
+            },
+            "targets": [
+              {
+                "expr": "prima_api_uptime_seconds",
+                "legendFormat": "Uptime (seconds)"
+              }
+            ]
+          },
+          {
+            "id": 4,
+            "type": "graph",
+            "title": "Response Time",
+            "gridPos": {
+              "x": 12,
+              "y": 9,
+              "w": 12,
+              "h": 4
+            },
+            "targets": [
+              {
+                "expr": "prima_api_response_time_seconds",
+                "legendFormat": "Average response time"
+              }
+            ]
+          }
+        ]
+      }
+    }

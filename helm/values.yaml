@@ -1,5 +1,6 @@
+# Production-ready Helm values for Prima API
 # Number of pod replicas to run
-replicaCount: 1
+replicaCount: 3
 
 image:
   # Docker image repository for the app container
@@ -8,32 +9,164 @@ image:
   tag: latest
   # Image pull policy: When to pull the image from the repo
   pullPolicy: Always
+  # Image pull secrets if using private registry
+  pullSecrets: []
 
-# ADD THIS LINE:
-containerPort: 8000  # or whatever port your app listens on inside the container
+# Container port that the application listens on
+containerPort: 8000
 
 service:
   # Kubernetes Service type (ClusterIP, NodePort, LoadBalancer)
   type: ClusterIP
   # Port to expose on the service
   port: 8000
+  # Additional service annotations
+  annotations: {}
 
+# Resource limits and requests for the container
 resources:
   limits:
     # Max CPU allowed for container
-    cpu: 500m
+    cpu: 1000m
     # Max memory allowed for container
-    memory: 512Mi
+    memory: 1Gi
   requests:
     # Minimum CPU requested for scheduling
-    cpu: 200m
+    cpu: 500m
     # Minimum memory requested for scheduling
-    memory: 256Mi
+    memory: 512Mi
 
+# Horizontal Pod Autoscaler configuration
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 60
+  targetMemoryUtilizationPercentage: 70
+
+# Ingress configuration for external access
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+  hosts:
+    - host: prima-api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: prima-api-tls
+      hosts:
+        - prima-api.example.com
+
+# Network Policy configuration
+networkPolicy:
+  enabled: true
+  additionalEgress: []
+
+# Pod Disruption Budget configuration
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+  # Alternatively, use maxUnavailable: 1
+
+# Security context for pods
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+  capabilities:
+    drop:
+      - ALL
+
+# Container security context
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+
+# Node selector for pod placement
+nodeSelector: {}
+
+# Tolerations for pod scheduling
+tolerations: []
+
+# Affinity rules for pod scheduling
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - {{ .Chart.Name }}
+        topologyKey: kubernetes.io/hostname
+
+# Environment variables (non-sensitive)
 env:
   # AWS Region the app will connect to
-  AWS_REGION: "test"
+  AWS_REGION: "us-east-1"
   # S3 bucket name for storing avatars or files
-  S3_BUCKET: "test"
+  S3_BUCKET: "prima-avatars-bucket"
   # DynamoDB table name for user data
-  DYNAMODB_TABLE: "test"
+  DYNAMODB_TABLE: "users"
+  # Additional environment variables can be added here
+
+# Sensitive environment variables (should be provided via external values file)
+# These should be overridden in a separate values-secret.yaml file
+secrets:
+  API_KEY: ""
+  AWS_ACCESS_KEY_ID: ""
+  AWS_SECRET_ACCESS_KEY: ""
+
+# Monitoring and observability
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+    scrapeTimeout: "10s"
+  prometheusRule:
+    enabled: true
+    rules:
+      - alert: PrimaAPIHighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second"
+      - alert: PrimaAPIHighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency detected"
+          description: "95th percentile latency is {{ $value }} seconds"
+
+# Backup and disaster recovery
+backup:
+  enabled: true
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retention: 30  # Keep backups for 30 days

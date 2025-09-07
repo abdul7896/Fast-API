@@ -1,0 +1,19 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: avatar-service-vs
+  namespace: prima-api
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - prima-api-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /avatar
+    route:
+    - destination:
+        host: avatar-service
+        port:
+          number: 8000

@@ -1,0 +1,25 @@
+name: Notifications
+
+on:
+  workflow_run:
+    workflows: ["Build and Test", "Terraform", "Helm Lint", "Deploy", "Security Scan"]
+    types:
+      - completed
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Send Slack notification
+      uses: slackapi/slack-github-action@v1.23.0
+      with:
+        payload: |
+          {
+            "workflow": "${{ github.event.workflow_run.name }}",
+            "status": "${{ github.event.workflow_run.conclusion }}",
+            "branch": "${{ github.event.workflow_run.head_branch }}",
+            "commit": "${{ github.event.workflow_run.head_sha }}",
+            "url": "${{ github.event.workflow_run.html_url }}"
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

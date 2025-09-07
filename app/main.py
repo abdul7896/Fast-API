@@ -9,7 +9,7 @@ import re
 from typing import List
 
 # Third-Party Imports
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from fastapi import (
     FastAPI,
     File,
@@ -24,6 +24,7 @@ from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
 import boto3
 from dotenv import load_dotenv
+from .metrics import router as metrics_router
 
 # Load environment variables from .env file
 load_dotenv()
@@ -36,6 +37,9 @@ app = FastAPI(
     openapi_url="/openapi.json",
     version="1.0.0"
 )
+
+# Include metrics router
+app.include_router(metrics_router)
 
 
 # SECURITY CONFIGURATION
@@ -66,16 +70,24 @@ class UserForm(BaseModel):
     name: str
     email: EmailStr
 
-    @validator('name')
-    def validate_name(cls, value):
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, value: str) -> str:
         """Ensure name contains only letters, spaces, and hyphens"""
+        if not isinstance(value, str):
+            raise ValueError('Name must be a string')
         if not re.match(r'^[a-zA-Z\s-]+$', value):
-            raise ValueError('Name can only contain letters and spaces')
+            raise ValueError('Name can only contain letters, spaces, and hyphens')
+        if len(value.strip()) < 2:
+            raise ValueError('Name must be at least 2 characters long')
         return value.strip()
 
-    @validator('email')
-    def validate_email_domain(cls, value):
+    @field_validator('email')
+    @classmethod
+    def validate_email_domain(cls, value: str) -> str:
         """Block disposable email domains and validate email structure"""
+        if not isinstance(value, str):
+            raise ValueError('Email must be a string')
         domain = value.split('@')[-1].lower()
         if domain in BLOCKED_DOMAINS:
             raise ValueError('Disposable email domains are not allowed')
@@ -94,9 +106,7 @@ class UserResponse(BaseModel):
     email: EmailStr
     avatar_url: str
 
-    class Config:
-        """Enable ORM mode for compatibility with database models"""
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # DEPENDENCY FUNCTIONS
 
@@ -125,28 +135,54 @@ async def health_check():
 
 @app.get("/ready", status_code=status.HTTP_200_OK, include_in_schema=False)
 async def readiness_check():
+    """Kubernetes readiness probe endpoint that checks service dependencies"""
     try:
         region = os.getenv("AWS_REGION")
         if not region:
-            raise ValueError("AWS_REGION is not set")
+            raise ValueError("AWS_REGION environment variable is not set")
 
-        config = Config(connect_timeout=2, read_timeout=2)
+        # Configure boto3 with shorter timeouts for health checks
+        config = Config(
+            connect_timeout=3,
+            read_timeout=3,
+            retries={'max_attempts': 1}
+        )
 
-        # Check DynamoDB
+        # Check DynamoDB connectivity
         dynamodb = boto3.resource("dynamodb", region_name=region, config=config)
         table_name = os.getenv("DYNAMODB_TABLE", "users")
-        dynamodb.meta.client.describe_table(TableName=table_name)
+        try:
+            dynamodb.meta.client.describe_table(TableName=table_name)
+        except Exception as e:
+            raise ValueError(f"DynamoDB health check failed: {str(e)}")
 
-        # Check S3
+        # Check S3 connectivity
         s3 = boto3.client("s3", region_name=region, config=config)
-        s3.head_bucket(Bucket=os.getenv("S3_BUCKET"))
+        bucket_name = os.getenv("S3_BUCKET")
+        if not bucket_name:
+            raise ValueError("S3_BUCKET environment variable is not set")
+        
+        try:
+            s3.head_bucket(Bucket=bucket_name)
+        except Exception as e:
+            raise ValueError(f"S3 health check failed: {str(e)}")
 
-        return {"status": "ready"}
+        return JSONResponse(
+            content={"status": "ready", "dependencies": {"dynamodb": "ok", "s3": "ok"}}
+        )
 
-    except Exception as e:
+    except ValueError as e:
+        # Log the actual error for debugging
+        print(f"Readiness check failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Service dependencies unavailable: {str(e)}"
+        )
+    except Exception as e:
+        print(f"Unexpected error in readiness check: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unexpected error during health check"
         )
 
 

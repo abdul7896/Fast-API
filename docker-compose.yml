@@ -1,0 +1,148 @@
+version: '3.8'
+
+networks:
+  prima-network:
+    driver: bridge
+
+volumes:
+  localstack_data:
+    driver: local
+
+services:
+  # LocalStack for AWS services emulation
+  localstack:
+    image: localstack/localstack:2.3
+    container_name: prima-localstack
+    ports:
+      - "4566:4566"  # LocalStack Gateway
+      - "4510-4559:4510-4559"  # External services port range
+    environment:
+      - SERVICES=s3,dynamodb,iam,sts
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - PORT_WEB_UI=4566
+      - LAMBDA_EXECUTOR=docker
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - prima-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  # AWS CLI for LocalStack setup
+  aws-cli:
+    image: amazon/aws-cli:latest
+    container_name: prima-aws-setup
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+    volumes:
+      - ./scripts:/scripts:ro
+    networks:
+      - prima-network
+    depends_on:
+      localstack:
+        condition: service_healthy
+    entrypoint: ["/scripts/setup-aws-local.sh"]
+
+  # Prima API - Development mode
+  prima-api-dev:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: builder
+    container_name: prima-api-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - S3_BUCKET=prima-avatars-local
+      - DYNAMODB_TABLE=users-local
+      - API_KEY=dev-secret-key-12345
+    volumes:
+      - ./app:/app/app:rw
+      - ./tests:/app/tests:ro
+    networks:
+      - prima-network
+    depends_on:
+      localstack:
+        condition: service_healthy
+      aws-cli:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Prima API - Production mode
+  prima-api-prod:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: prima-api-prod
+    ports:
+      - "8080:8000"
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-test}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-test}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET:-prima-avatars-bucket}
+      - DYNAMODB_TABLE=${DYNAMODB_TABLE:-users}
+      - API_KEY=${API_KEY:-prod-secret-key}
+    env_file:
+      - .env
+    networks:
+      - prima-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    profiles: ["production"]
+
+  # Monitoring - Prometheus (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prima-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - prima-network
+    profiles: ["monitoring"]
+
+  # Monitoring - Grafana (optional)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: prima-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - prima-network
+    profiles: ["monitoring"]

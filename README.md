@@ -1,18 +1,35 @@
- ## ** Fast API Tech **
-## **End-to-End Infrastructure and Deployment Solution**
+# Prima API - Production-Ready FastAPI Service
 
-### **Overview**
+[![Security Scanning](https://github.com/your-org/Fast-API/actions/workflows/security.yaml/badge.svg)](https://github.com/your-org/Fast-API/actions/workflows/security.yaml)
+[![CI/CD](https://github.com/your-org/Fast-API/actions/workflows/deploy.yaml/badge.svg)](https://github.com/your-org/Fast-API/actions/workflows/deploy.yaml)
 
-I designed and implemented a complete CI/CD pipeline and infrastructure automation system for a FastAPI service. This solution covers code to cloud — from development to production — with security, observability, and automation at every stage.
+## Overview
 
-### **Technology Stack**
+A production-ready FastAPI microservice with complete CI/CD pipeline, infrastructure automation, and Kubernetes deployment. This solution demonstrates enterprise-grade DevOps practices with security, observability, and automation at every stage.
 
-- **FastAPI** – Python-based REST API  
-- **Docker** – Containerization  
-- **Terraform** – Infrastructure as Code (AWS)  
-- **Kubernetes + Helm** – Deployment orchestration  
-- **GitHub Actions** – CI/CD automation  
-- **Slack** – Real-time notifications  
+## 🚀 Features
+
+- **REST API**: FastAPI with Pydantic v2, automatic OpenAPI docs
+- **Security**: API key authentication, input validation, security scanning
+- **Containerization**: Multi-stage Docker builds with security best practices
+- **Kubernetes**: Production-ready Helm charts with HPA, NetworkPolicy, PDB
+- **Infrastructure**: Terraform for AWS resources (S3, DynamoDB, KMS)
+- **CI/CD**: GitHub Actions with security scanning and automated deployments
+- **Monitoring**: Prometheus metrics, health checks, structured logging
+- **Documentation**: Comprehensive guides for deployment and development
+
+## 📊 Technology Stack
+
+| Component | Technology | Purpose |
+|-----------|------------|----------|
+| **API Framework** | FastAPI + Uvicorn | High-performance async Python API |
+| **Containerization** | Docker | Multi-stage builds with security |
+| **Orchestration** | Kubernetes + Helm | Container orchestration and packaging |
+| **Infrastructure** | Terraform | AWS infrastructure as code |
+| **CI/CD** | GitHub Actions | Automated testing and deployment |
+| **Security** | Bandit, Trivy, Checkov | Comprehensive security scanning |
+| **Monitoring** | Prometheus | Metrics and observability |
+| **Storage** | AWS S3 + DynamoDB | Object storage and NoSQL database |
 
 ### **Architecture Summary**
 
