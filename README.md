@@ -1,7 +1,7 @@
 # Prima API - Production-Ready FastAPI Service
 
 [![Security Scanning](https://github.com/your-org/Fast-API/actions/workflows/security.yaml/badge.svg)](https://github.com/your-org/Fast-API/actions/workflows/security.yaml)
-[![CI/CD](https://github.com/your-org/Fast-API/actions/workflows/deploy.yaml/badge.svg)](https://github.com/your-org/Fast-API/actions/workflows/deploy.yaml)
+[![CI/CD](https://github.com/your-org/Fast-API/actions/workflows/ci-cd.yaml/badge.svg)](https://github.com/your-org/Fast-API/actions/workflows/ci-cd.yaml)
 
 ## Overview
 
@@ -13,7 +13,7 @@ A production-ready FastAPI microservice with complete CI/CD pipeline, infrastruc
 - **Security**: API key authentication, input validation, security scanning
 - **Containerization**: Multi-stage Docker builds with security best practices
 - **Kubernetes**: Production-ready Helm charts with HPA, NetworkPolicy, PDB
-- **Infrastructure**: Terraform for AWS resources (S3, DynamoDB, KMS)
+- **Infrastructure**: Terraform for AWS resources (S3, DynamoDB, KMS, EKS)
 - **CI/CD**: GitHub Actions with security scanning and automated deployments
 - **Monitoring**: Prometheus metrics, health checks, structured logging
 - **Documentation**: Comprehensive guides for deployment and development
@@ -28,140 +28,95 @@ A production-ready FastAPI microservice with complete CI/CD pipeline, infrastruc
 | **Infrastructure** | Terraform | AWS infrastructure as code |
 | **CI/CD** | GitHub Actions | Automated testing and deployment |
 | **Security** | Bandit, Trivy, Checkov | Comprehensive security scanning |
-| **Monitoring** | Prometheus | Metrics and observability |
+| **Monitoring** | Prometheus, AWS X-Ray | Metrics and observability |
 | **Storage** | AWS S3 + DynamoDB | Object storage and NoSQL database |
 
-### **Architecture Summary**
+## 🏗️ Project Structure
 
-```
-[ FastAPI App ] → [ Docker ] → [ Kubernetes (Helm) ]
-       ↓               ↓               ↓
-   [ AWS S3 / DynamoDB ] ← [ Terraform ] ← [ GitHub Actions + Slack ]
-```
+See [Project Structure Documentation](docs/project-structure.md) for detailed information about the directory layout.
 
-Fully automated, modular, and production-ready.
+### Key Directories
 
----
+- `src/` - Application source code
+- `infrastructure/` - Terraform configurations for AWS
+- `kubernetes/` - Kubernetes manifests and Helm charts
+- `.github/workflows/` - CI/CD pipeline definitions
+- `scripts/` - Utility scripts for deployment and operations
 
-### **API Service (FastAPI)**
+## 📡 API Endpoints
 
-#### **Endpoints**
-- `GET /users` – Fetch all users from DynamoDB  
-- `POST /user` – Register a new user and generate S3 presigned URL for avatar upload  
+- `GET /health` - Kubernetes liveness probe
+- `GET /ready` - Kubernetes readiness probe
+- `GET /metrics` - Prometheus metrics endpoint
+- `GET /users` - Fetch all users from DynamoDB
+- `POST /user` - Register a new user and upload avatar to S3
 
-#### **Features**
-- Input validation with Pydantic  
-- Secure S3 presigned URLs for uploads  
-- AWS SDK integration (boto3)  
-- API key authentication via `X-API-Key`  
-- Graceful error handling for AWS failures  
+## 🐳 Containerization (Docker)
 
----
+Multi-stage Docker build with security best practices:
 
-### **Containerization (Docker)**
-
-I containerized the app using a minimal, secure Docker setup.
-
-- Base: `python:3.11-slim`  
-- Dependencies installed with `--no-cache-dir`  
-- `.env` excluded from image (security best practice)  
-
-#### **Commands**
 ```bash
-docker build -t abz7896/prima-api:latest .
-docker run -p 8000:8000 --env-file .env abz7896/prima-api:latest
+docker build -t prima-api:latest .
+docker run -p 8000:8000 --env-file .env prima-api:latest
 ```
 
----
+## ☁️ Infrastructure as Code (Terraform)
 
-### **Infrastructure as Code (Terraform)**
+Provision complete AWS infrastructure including:
 
-I used Terraform to provision all AWS resources:
+- **EKS Cluster** with VPC, subnets, and security groups
+- **S3 bucket** with server-side encryption (KMS) for avatars
+- **DynamoDB table** with KMS encryption for user data
+- **KMS keys** with auto-rotation enabled
+- **IAM roles** for service accounts (IRSA)
+- **ALB Ingress** with TLS termination
 
-- **S3 bucket** with server-side encryption (KMS) for avatars  
-- **DynamoDB table** with KMS encryption for user data  
-- **KMS key** with auto-rotation enabled  
-- **Remote state backend** in S3 with DynamoDB locking for team safety  
+```bash
+cd infrastructure/terraform
+terraform init
+terraform apply
+```
 
-All infrastructure is version-controlled, modular, and reproducible.
+## ⎈ Kubernetes Deployment (Helm)
 
-> **Note on IAM Roles**:  
-> I did **not use IAM roles** like IRSA because this runs on a generic Kubernetes cluster, not EKS. Without EKS, IRSA isn't available. Instead, I securely pass AWS credentials via Helm.
+Production-ready Helm charts with:
 
-> **KMS & DynamoDB Encryption**:  
-> Yes, I **did use KMS correctly** — the DynamoDB table uses **server-side encryption with a customer-managed KMS key**, and I granted the application `kms:Encrypt` and `kms:Decrypt` permissions via IAM policy. This ensures full control and auditability of encryption.
+- Horizontal Pod Autoscaler (HPA)
+- Network Policies
+- Pod Disruption Budgets
+- Resource limits and requests
+- Liveness/readiness probes
 
----
+```bash
+# After creating kubernetes/helm/charts/prima-api/values-secret.yaml
+helm install prima-api kubernetes/helm/charts/prima-api \
+  --namespace prima \
+  --create-namespace \
+  -f kubernetes/helm/charts/prima-api/values.yaml \
+  -f kubernetes/helm/charts/prima-api/values-secret.yaml
+```
 
-### **Kubernetes Deployment (Helm)**
+## 🔄 CI/CD Pipeline (GitHub Actions)
 
-I packaged the deployment using Helm for consistency and reusability.
+Automated workflow with multiple jobs:
 
-#### **Chart Includes**
-- Deployment with liveness/readiness probes  
-- Resource limits and requests  
-- Horizontal Pod Autoscaler (HPA)  
-- ConfigMap for non-sensitive config  
-- Secrets (external) for API key and AWS credentials  
+1. **Security Scanning** - Bandit, Trivy, Checkov
+2. **Build & Test** - Docker build, unit/integration tests
+3. **Terraform** - Format, init, validate, plan, apply
+4. **Helm Lint** - Validate Helm chart
+5. **Deploy** - Auto-promote to dev, release, and main
+6. **Slack Notifications** - Status updates for all events
 
-> **Security Note**:  
-> I **did not commit** `values-secret.yaml`. It contains:
-> ```yaml
-> env:
->   API_KEY: primaGUeeghoMV3wooeJnnmTmSoo6mfMZmjVBPqC3z7T7ydJrmP2Rpelsr4lMXJIZ1dtSWHcqoXli0xjONlrDDZx6CEh0NnP55tZ7SxwoaXAoOPNz8LqnCgzpE4tx5L1uStiwNU7wEeDuhoW2ohXEveg2qjHkPTgMkKvFbbebRWLNGzY1EGaRL2Y1wRnljcZXqbwYeKIib0lJTU7VsIQYnUMms4HgQMx3A8TlSZrDt4CNoEJ0cucoLBZX0s36JHl8dpe0NskukIdq4lUQCgrIHZ77aac4IBccgBOWyVWN61yLJK7TqnmEewHmfon5UEcqiqNHchAm997rkeXWk843r0raMEkU1VmNuXlbwgOVtiwjr1v5WEjuwpOBq9uPQowREmeqRk0NTrTFQFPDuXOY5P3iZfZdcW2h9jH6iW9H7SfZE0A52JBmyY97CybG0vtKEWKetZqTEbFQfWL559rfYIVfrKAIjZXT1yGg8LfeFX3XBhkDIydRoJkXYnQInGx
+## 🔐 Authentication & Security
 
->   AWS_ACCESS_KEY_ID: "..."
->   AWS_SECRET_ACCESS_KEY: "..."
-> ```
-> 
-> Deploy using:
-> ```bash
-> helm install prima-api ./helm \
->   --namespace prima \
->   --create-namespace \
->   -f helm/values.yaml \
->   -f values-secret.yaml
-> ```
-> 
-> This keeps secrets out of version control.
+- **API access** protected by `X-API-Key` header
+- **AWS credentials** managed via IRSA (IAM Roles for Service Accounts)
+- **Least-privilege IAM policies** for all services
+- **KMS encryption** enabled for all data at rest
+- **Secrets** injected via external Helm values
+- **Security scanning** in CI pipeline
 
----
-
-### **CI/CD Pipeline (GitHub Actions)**
-
-I automated the entire workflow using GitHub Actions:
-
-#### **Jobs in Order**
-1. **Build** – Lint Python, run Bandit security scan, build & push Docker image  
-2. **Terraform** – Format, init, validate, plan, and apply infrastructure  
-3. **Tests** – Run unit and integration tests  
-4. **Helm Lint** – Validate Helm chart  
-5. **Deploy to Dev** – Merge to `dev` branch  
-6. **Deploy to Release** – Merge to `release`  
-7. **Deploy to Main** – Merge to `main`  
-8. **Slack Notification** – Send status to Slack on **all events**
-
-#### **Slack Integration**
-- I set up **Slack notifications for every pipeline outcome** (success/failure)  
-- Notifications include: workflow name, status, branch, and trigger  
-- Uses `slackapi/slack-github-action`  
-- Sends updates for **all branches**, not just main  
-- Ensures visibility across the team  
-
----
-
-### **Authentication & Security**
-
-- **API access** protected by `X-API-Key` header  
-- **AWS credentials** passed via environment (never hardcoded)  
-- **Least-privilege IAM policies** for S3, DynamoDB, and KMS  
-- **KMS encryption** enabled for all data at rest  
-- **Secrets** injected via external Helm values  
-- **Bandit scan** in CI to catch security issues early  
-
----
-
-### **How to Run It Locally**
+## 🧪 How to Run It Locally
 
 1. **Clone the repo**
 
@@ -170,8 +125,7 @@ I automated the entire workflow using GitHub Actions:
    AWS_ACCESS_KEY_ID=your_access_key
    AWS_SECRET_ACCESS_KEY=your_secret_key
    AWS_REGION=us-east-1
-   API_KEY=primaGUeeghoMV3wooeJnnmTmSoo6mfMZmjVBPqC3z7T7ydJrmP2Rpelsr4lMXJIZ1dtSWHcqoXli0xjONlrDDZx6CEh0NnP55tZ7SxwoaXAoOPNz8LqnCgzpE4tx5L1uStiwNU7wEeDuhoW2ohXEveg2qjHkPTgMkKvFbbebRWLNGzY1EGaRL2Y1wRnljcZXqbwYeKIib0lJTU7VsIQYnUMms4HgQMx3A8TlSZrDt4CNoEJ0cucoLBZX0s36JHl8dpe0NskukIdq4lUQCgrIHZ77aac4IBccgBOWyVWN61yLJK7TqnmEewHmfon5UEcqiqNHchAm997rkeXWk843r0raMEkU1VmNuXlbwgOVtiwjr1v5WEjuwpOBq9uPQowREmeqRk0NTrTFQFPDuXOY5P3iZfZdcW2h9jH6iW9H7SfZE0A52JBmyY97CybG0vtKEWKetZqTEbFQfWL559rfYIVfrKAIjZXT1yGg8LfeFX3XBhkDIydRoJkXYnQInGx
-
+   API_KEY=your_api_key
    S3_BUCKET=prima-avatars-bucket
    DYNAMODB_TABLE=users
    ```
@@ -184,48 +138,62 @@ I automated the entire workflow using GitHub Actions:
 
 4. **Apply infrastructure**
    ```bash
-   cd terraform
+   cd infrastructure/terraform
    terraform init
    terraform apply
    ```
 
 5. **Deploy to Kubernetes**
    ```bash
-   # After creating values-secret.yaml
-   2. **Create `.env`**
-   ```env
-   AWS_ACCESS_KEY_ID=your_key
-   AWS_SECRET_ACCESS_KEY=your_secret
-   AWS_REGION=us-east-1
-   API_KEY=primaGUeeghoMV3wooeJnnmTmSoo6mfMZmjVBPqC3z7T7ydJrmP2Rpelsr4lMXJIZ1dtSWHcqoXli0xjONlrDDZx6CEh0NnP55tZ7SxwoaXAoOPNz8LqnCgzpE4tx5L1uStiwNU7wEeDuhoW2ohXEveg2qjHkPTgMkKvFbbebRWLNGzY1EGaRL2Y1wRnljcZXqbwYeKIib0lJTU7VsIQYnUMms4HgQMx3A8TlSZrDt4CNoEJ0cucoLBZX0s36JHl8dpe0NskukIdq4lUQCgrIHZ77aac4IBccgBOWyVWN61yLJK7TqnmEewHmfon5UEcqiqNHchAm997rkeXWk843r0raMEkU1VmNuXlbwgOVtiwjr1v5WEjuwpOBq9uPQowREmeqRk0NTrTFQFPDuXOY5P3iZfZdcW2h9jH6iW9H7SfZE0A52JBmyY97CybG0vtKEWKetZqTEbFQfWL559rfYIVfrKAIjZXT1yGg8LfeFX3XBhkDIydRoJkXYnQInGx
-   S3_BUCKET=prima-avatars-bucket
-   DYNAMODB_TABLE=users
-   ```
-   helm install prima-api helm/ -f helm/values.yaml -f values-secret.yaml
-   kubectl port-forward service/prima-api-prima-api 8000:8000
+   # After creating kubernetes/helm/charts/prima-api/values-secret.yaml
+   helm install prima-api kubernetes/helm/charts/prima-api \
+     -f kubernetes/helm/charts/prima-api/values.yaml \
+     -f kubernetes/helm/charts/prima-api/values-secret.yaml
+   kubectl port-forward service/prima-api 8000:8000
    ```
 
----
+## 📈 Monitoring & Observability
 
-### **Future Improvements**
+- **Prometheus metrics** exposed at `/metrics` endpoint
+- **AWS X-Ray** for distributed tracing
+- **Health checks** at `/health` and `/ready` endpoints
+- **Structured logging** for debugging and audit
 
-- **Prometheus + Grafana** – Monitor API metrics and K8s performance  
-- **JWT Authentication** – Replace API key with proper auth  
-- **GitOps with ArgoCD** – Enable automated sync and rollback  
-- **SonarQube + Trivy** – Add code quality and vulnerability scanning  
-- **Ingress with TLS** – Expose API securely  
-- **Enable IRSA** – When moving to EKS, use IAM roles for service accounts  
+## 🚀 Deployment Strategy
 
----
+1. **Development** - Auto-deploy on push to `dev` branch
+2. **Staging** - Manual promotion from `dev` to `release` branch
+3. **Production** - Manual promotion from `release` to `main` branch
+4. **Rollback** - GitOps-enabled with ArgoCD for instant rollback
 
-### **Conclusion**
+## 🛡️ Security Features
 
-I delivered a full-stack DevOps solution that automates everything from code commit to production deployment. With Terraform for infrastructure, Helm for deployment, GitHub Actions for CI/CD, and Slack for notifications, this system is secure, observable, and scalable.
+- **Bandit** - Python security scanner in CI pipeline
+- **Trivy** - Container vulnerability scanning
+- **Checkov** - Infrastructure as Code security scanning
+- **KMS encryption** - For all data at rest
+- **IRSA** - IAM Roles for Service Accounts in EKS
+- **Network Policies** - Pod-to-pod communication restrictions
 
-Every decision was made with production standards in mind — from KMS encryption to secret management to automated testing. This isn’t just a demo; it’s a foundation for real-world applications.
+## 📚 Documentation
 
----
+- [Project Structure](docs/project-structure.md)
+- [API Documentation](docs/api.md)
+- [Deployment Guide](docs/deployment.md)
+- [Security Guide](docs/security.md)
+- [Monitoring Guide](docs/monitoring.md)
 
- **Final Note**: This project demonstrates end-to-end ownership — from writing code to managing infrastructure to enabling team collaboration through automation and alerts.
+## 🤝 Future Improvements
 
----
+- **JWT Authentication** - Replace API key with proper auth
+- **GitOps with ArgoCD** - Enable automated sync and rollback
+- **SonarQube** - Add code quality scanning
+- **Ingress with TLS** - Expose API securely with Let's Encrypt
+- **Chaos Engineering** - Add resilience testing
+- **Service Mesh** - Implement Istio for advanced traffic management
+
+## 🏁 Conclusion
+
+This project demonstrates a complete, production-ready DevOps solution that automates everything from code commit to production deployment. With Terraform for infrastructure, Helm for deployment, GitHub Actions for CI/CD, and Slack for notifications, this system is secure, observable, and scalable.
+
+Every decision was made with production standards in mind — from KMS encryption to secret management to automated testing. This isn't just a demo; it's a foundation for real-world applications.
