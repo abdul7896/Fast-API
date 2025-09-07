@@ -20,11 +20,16 @@ resource "aws_iam_role" "prima_api_service_role" {
         }
         Condition = {
           StringEquals = {
-            "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub" = "system:serviceaccount:prima-api:prima-api-service-account"
+            "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:sub" = "system:serviceaccount:kube-system:prima-api-service-account"
             "${replace(module.eks.cluster_oidc_issuer_url, "https://", "")}:aud" = "sts.amazonaws.com"
           }
         }
       }
     ]
   })
+
+  tags = {
+    Name        = "${var.project_name}-service-role-${var.environment}"
+    Environment = var.environment
+  }
 }

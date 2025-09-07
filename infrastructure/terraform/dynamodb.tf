@@ -9,11 +9,17 @@ resource "aws_dynamodb_table" "users" {
     type = "S"
   }
 
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.app_data.arn
+  }
+
   point_in_time_recovery {
-    enabled = var.environment == "production"
+    enabled = var.environment == "prod" || var.environment == "staging"
   }
 
   tags = {
-    Name = "${var.project_name}-users-${var.environment}"
+    Name        = "${var.project_name}-users-${var.environment}"
+    Environment = var.environment
   }
 }

@@ -45,3 +45,9 @@ variable "kubernetes_version" {
   type        = string
   default     = "1.28"
 }
+
+variable "acm_certificate_arn" {
+  description = "ACM certificate ARN for HTTPS"
+  type        = string
+  default     = ""
+}
