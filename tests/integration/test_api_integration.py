@@ -2,7 +2,7 @@ import io
 import os
 import boto3
 from fastapi.testclient import TestClient
-from moto import mock_aws
+from moto import mock_dynamodb, mock_s3
 
 import app.main as main_module
 
@@ -11,18 +11,19 @@ client = TestClient(main_module.app)
 
 def setup_aws():
     s3 = boto3.client("s3", region_name="us-east-1")
-    s3.create_bucket(Bucket=os.getenv("S3_BUCKET"))
+    s3.create_bucket(Bucket=os.getenv("S3_BUCKET", "test-bucket"))
 
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
     dynamodb.create_table(
-        TableName=os.getenv("DYNAMODB_TABLE"),
+        TableName=os.getenv("DYNAMODB_TABLE", "users"),
         KeySchema=[{"AttributeName": "email", "KeyType": "HASH"}],
         AttributeDefinitions=[{"AttributeName": "email", "AttributeType": "S"}],
         BillingMode="PAY_PER_REQUEST",
     )
 
 
-@mock_aws
+@mock_dynamodb
+@mock_s3
 def test_create_user_flow():
     setup_aws()
 
@@ -41,7 +42,8 @@ def test_create_user_flow():
     assert "avatar_url" in resp
 
 
-@mock_aws
+@mock_dynamodb
+@mock_s3
 def test_get_users_flow():
     setup_aws()
 
